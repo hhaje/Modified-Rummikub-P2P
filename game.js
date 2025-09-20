@@ -1050,9 +1050,9 @@ class P2PManager {
                 this.updatePlayerReady(message.data.playerId, message.data.isReady);
                 this.gameController.updateWaitingRoom();
                 break;
-                
+
             case 'game_start':
-                this.gameController.initializeMultiplayerGame();
+                this.gameController.initializeMultiplayerGame(message.data);
                 break;
                 
             case 'game_action':
@@ -1115,6 +1115,9 @@ class GameController {
         // 멀티플레이어 관련
         this.p2pManager = new P2PManager(this);
         this.isMultiplayer = false;
+        this.isHost = false;
+        this.localPlayerName = '';
+        this.sessionCode = null;
         this.currentScreen = 'lobby';
         
         this.initializeEventListeners();
@@ -1154,6 +1157,385 @@ class GameController {
 
         // 드래그 앤 드롭 이벤트
         this.setupDragAndDrop();
+    }
+
+
+    applySettingsFromInputs() {
+        const readNumber = (id, fallback) => {
+            const element = document.getElementById(id);
+            if (!element) return fallback;
+            const value = parseInt(element.value, 10);
+            return Number.isFinite(value) ? value : fallback;
+        };
+
+        const updatedSettings = {
+            numberSets: readNumber('number-sets', this.gameState.settings.numberSets),
+            operatorSets: readNumber('operator-sets', this.gameState.settings.operatorSets),
+            jokerCount: readNumber('joker-count', this.gameState.settings.jokerCount),
+            playerCount: readNumber('player-count', this.gameState.settings.playerCount),
+            initialNumberCards: readNumber('initial-number-cards', this.gameState.settings.initialNumberCards),
+            initialOperatorCards: readNumber('initial-operator-cards', this.gameState.settings.initialOperatorCards)
+        };
+
+        Object.assign(this.gameState.settings, updatedSettings);
+    }
+
+    showLobby() {
+        const lobbyScreen = document.getElementById('lobby-screen');
+        const waitingRoom = document.getElementById('waiting-room-screen');
+        const gameScreen = document.getElementById('game-screen');
+
+        if (lobbyScreen) lobbyScreen.style.display = 'block';
+        if (waitingRoom) waitingRoom.style.display = 'none';
+        if (gameScreen) gameScreen.style.display = 'none';
+
+        this.currentScreen = 'lobby';
+        this.isMultiplayer = false;
+        this.isHost = false;
+        this.localPlayerName = '';
+        this.sessionCode = null;
+        this.p2pManager.isReady = false;
+
+        const sessionCodeElement = document.getElementById('session-code');
+        if (sessionCodeElement) {
+            sessionCodeElement.textContent = '------';
+        }
+
+        const waitingPlayers = document.getElementById('waiting-players');
+        if (waitingPlayers) {
+            waitingPlayers.innerHTML = '';
+        }
+
+        const currentPlayers = document.getElementById('current-players');
+        if (currentPlayers) {
+            currentPlayers.textContent = '0';
+        }
+
+        const maxPlayers = document.getElementById('max-players');
+        if (maxPlayers) {
+            maxPlayers.textContent = this.gameState.settings.playerCount;
+        }
+
+        this.hideJoinModal();
+    }
+
+    async showGameSettings() {
+        if (this.isMultiplayer && this.isHost && this.currentScreen === 'waiting') {
+            this.showSettingsModal();
+            return;
+        }
+
+        this.hideJoinModal();
+
+        const defaultName = this.localPlayerName || '호스트';
+        const playerName = prompt('플레이어 이름을 입력하세요', defaultName);
+        if (!playerName) {
+            return;
+        }
+
+        const trimmedName = playerName.trim();
+        if (!trimmedName) {
+            alert('플레이어 이름을 입력해주세요.');
+            return;
+        }
+        this.localPlayerName = trimmedName;
+
+        this.applySettingsFromInputs();
+
+        this.isMultiplayer = true;
+        this.isHost = true;
+
+        try {
+            const sessionCode = await this.p2pManager.createSession(this.localPlayerName, this.gameState.settings);
+            this.sessionCode = sessionCode;
+
+            const lobbyScreen = document.getElementById('lobby-screen');
+            const waitingRoom = document.getElementById('waiting-room-screen');
+            const gameScreen = document.getElementById('game-screen');
+
+            if (lobbyScreen) lobbyScreen.style.display = 'none';
+            if (waitingRoom) waitingRoom.style.display = 'block';
+            if (gameScreen) gameScreen.style.display = 'none';
+            this.currentScreen = 'waiting';
+
+            const sessionCodeElement = document.getElementById('session-code');
+            if (sessionCodeElement) {
+                sessionCodeElement.textContent = sessionCode;
+            }
+
+            const maxPlayers = document.getElementById('max-players');
+            if (maxPlayers) {
+                maxPlayers.textContent = this.gameState.settings.playerCount;
+            }
+
+            this.updateWaitingRoom();
+        } catch (error) {
+            console.error('세션 생성 실패:', error);
+            alert('세션을 생성하지 못했습니다. 다시 시도해주세요.');
+            this.leaveRoom();
+        }
+    }
+
+    showJoinModal() {
+        const modal = document.getElementById('join-game-modal');
+        if (modal) {
+            modal.style.display = 'block';
+        }
+    }
+
+    hideJoinModal() {
+        const modal = document.getElementById('join-game-modal');
+        if (modal) {
+            modal.style.display = 'none';
+        }
+    }
+
+    async joinGame() {
+        const codeInput = document.getElementById('join-code');
+        const nameInput = document.getElementById('player-name');
+
+        const sessionCode = codeInput ? codeInput.value.trim().toUpperCase() : '';
+        const playerName = nameInput ? nameInput.value.trim() : '';
+
+        if (!sessionCode || sessionCode.length !== 6) {
+            alert('유효한 6자리 참여 코드를 입력해주세요.');
+            return;
+        }
+
+        if (!playerName) {
+            alert('플레이어 이름을 입력해주세요.');
+            return;
+        }
+
+        this.hideJoinModal();
+        this.isMultiplayer = true;
+        this.isHost = false;
+        this.localPlayerName = playerName;
+        this.p2pManager.isReady = false;
+
+        try {
+            await this.p2pManager.joinSession(sessionCode, playerName);
+            this.sessionCode = sessionCode;
+
+            // 플레이어 정보 반영
+            this.p2pManager.players.set(playerName, {
+                id: playerName,
+                name: playerName,
+                isHost: false,
+                isReady: this.p2pManager.isReady,
+                connection: null
+            });
+
+            const connections = Array.from(this.p2pManager.connections.keys());
+            if (connections.length > 0) {
+                const hostId = connections[0];
+                if (!this.p2pManager.players.has(hostId)) {
+                    this.p2pManager.players.set(hostId, {
+                        id: hostId,
+                        name: hostId,
+                        isHost: true,
+                        isReady: true,
+                        connection: this.p2pManager.connections.get(hostId)
+                    });
+                }
+            }
+
+            const lobbyScreen = document.getElementById('lobby-screen');
+            const waitingRoom = document.getElementById('waiting-room-screen');
+            const gameScreen = document.getElementById('game-screen');
+
+            if (lobbyScreen) lobbyScreen.style.display = 'none';
+            if (waitingRoom) waitingRoom.style.display = 'block';
+            if (gameScreen) gameScreen.style.display = 'none';
+            this.currentScreen = 'waiting';
+
+            const sessionCodeElement = document.getElementById('session-code');
+            if (sessionCodeElement) {
+                sessionCodeElement.textContent = sessionCode;
+            }
+
+            const maxPlayers = document.getElementById('max-players');
+            if (maxPlayers) {
+                maxPlayers.textContent = this.gameState.settings.playerCount;
+            }
+
+            this.updateWaitingRoom();
+        } catch (error) {
+            console.error('세션 참여 실패:', error);
+            alert('세션에 참여하지 못했습니다. 참여 코드를 확인해주세요.');
+            this.showLobby();
+        }
+    }
+
+    async copySessionCode() {
+        if (!this.sessionCode) {
+            alert('복사할 세션 코드가 없습니다.');
+            return;
+        }
+
+        try {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                await navigator.clipboard.writeText(this.sessionCode);
+            } else {
+                const tempInput = document.createElement('input');
+                tempInput.value = this.sessionCode;
+                document.body.appendChild(tempInput);
+                tempInput.select();
+                document.execCommand('copy');
+                document.body.removeChild(tempInput);
+            }
+            alert('세션 코드가 복사되었습니다.');
+        } catch (error) {
+            console.error('세션 코드 복사 실패:', error);
+            alert('세션 코드를 복사하지 못했습니다.');
+        }
+    }
+
+    startMultiplayerGame() {
+        if (!this.isHost) {
+            return;
+        }
+
+        if (!this.p2pManager.canStartGame()) {
+            alert('모든 플레이어가 준비되지 않았습니다.');
+            return;
+        }
+
+        this.p2pManager.broadcastMessage('game_start', {
+            settings: this.gameState.settings
+        });
+
+        this.initializeMultiplayerGame();
+    }
+
+    toggleReady() {
+        if (this.isHost) {
+            return;
+        }
+
+        this.p2pManager.isReady = !this.p2pManager.isReady;
+        this.p2pManager.updatePlayerReady(this.p2pManager.playerName, this.p2pManager.isReady);
+        this.p2pManager.broadcastMessage('player_ready', {
+            playerId: this.p2pManager.playerName,
+            isReady: this.p2pManager.isReady
+        });
+
+        this.updateWaitingRoom();
+    }
+
+    leaveRoom() {
+        if (this.p2pManager) {
+            this.p2pManager.disconnect();
+        }
+
+        this.p2pManager = new P2PManager(this);
+        this.isMultiplayer = false;
+        this.isHost = false;
+        this.localPlayerName = '';
+        this.sessionCode = null;
+
+        this.showLobby();
+    }
+
+    updateWaitingRoom() {
+        const waitingPlayers = document.getElementById('waiting-players');
+        const currentPlayers = document.getElementById('current-players');
+        const maxPlayers = document.getElementById('max-players');
+        const hostActions = document.getElementById('host-actions');
+        const guestActions = document.getElementById('guest-actions');
+        const startButton = document.getElementById('start-multiplayer-game-btn');
+        const readyButton = document.getElementById('toggle-ready-btn');
+
+        if (!waitingPlayers || !currentPlayers || !maxPlayers) {
+            return;
+        }
+
+        const players = this.p2pManager ? this.p2pManager.getPlayerList() : [];
+
+        waitingPlayers.innerHTML = '';
+        players.forEach(player => {
+            const playerElement = document.createElement('div');
+            playerElement.className = 'waiting-player';
+
+            const nameElement = document.createElement('div');
+            nameElement.className = 'player-name';
+            nameElement.textContent = player.isHost ? `${player.name} (호스트)` : player.name;
+
+            const statusElement = document.createElement('div');
+            statusElement.className = `player-status ${player.isReady ? 'ready' : 'waiting'}`;
+            statusElement.textContent = player.isReady ? '준비 완료' : '대기 중';
+
+            playerElement.appendChild(nameElement);
+            playerElement.appendChild(statusElement);
+            waitingPlayers.appendChild(playerElement);
+        });
+
+        currentPlayers.textContent = players.length.toString();
+        maxPlayers.textContent = this.gameState.settings.playerCount;
+
+        if (hostActions) {
+            hostActions.style.display = this.isHost ? 'flex' : 'none';
+        }
+
+        if (guestActions) {
+            guestActions.style.display = this.isHost ? 'none' : 'flex';
+        }
+
+        if (startButton) {
+            startButton.disabled = !this.p2pManager.canStartGame();
+        }
+
+        if (readyButton) {
+            readyButton.textContent = this.p2pManager.isReady ? '⌛ 준비 취소' : '✋ 준비 완료';
+        }
+    }
+
+    onP2PConnected() {
+        if (this.currentScreen !== 'waiting') {
+            const lobbyScreen = document.getElementById('lobby-screen');
+            const waitingRoom = document.getElementById('waiting-room-screen');
+            const gameScreen = document.getElementById('game-screen');
+
+            if (lobbyScreen) lobbyScreen.style.display = 'none';
+            if (waitingRoom) waitingRoom.style.display = 'block';
+            if (gameScreen) gameScreen.style.display = 'none';
+            this.currentScreen = 'waiting';
+        }
+
+        this.updateWaitingRoom();
+    }
+
+    initializeMultiplayerGame(messageData = null) {
+        if (messageData && messageData.settings) {
+            Object.assign(this.gameState.settings, messageData.settings);
+        }
+
+        const players = this.p2pManager ? this.p2pManager.getPlayerList() : [];
+        if (players.length > 0) {
+            this.gameState.settings.playerCount = players.length;
+        }
+
+        const lobbyScreen = document.getElementById('lobby-screen');
+        const waitingRoom = document.getElementById('waiting-room-screen');
+        const gameScreen = document.getElementById('game-screen');
+
+        if (lobbyScreen) lobbyScreen.style.display = 'none';
+        if (waitingRoom) waitingRoom.style.display = 'none';
+        if (gameScreen) gameScreen.style.display = 'block';
+
+        this.currentScreen = 'game';
+        this.isMultiplayer = true;
+
+        this.initializeGame();
+
+        if (players.length > 0) {
+            this.gameState.players.forEach((player, index) => {
+                if (players[index]) {
+                    player.name = players[index].name;
+                }
+            });
+            this.updateUI();
+        }
     }
 
 
@@ -1213,6 +1595,17 @@ class GameController {
 
     hideSettingsModal() {
         document.getElementById('settings-modal').style.display = 'none';
+
+        if (this.isMultiplayer && this.isHost && this.currentScreen === 'waiting') {
+            this.applySettingsFromInputs();
+
+            const maxPlayers = document.getElementById('max-players');
+            if (maxPlayers) {
+                maxPlayers.textContent = this.gameState.settings.playerCount;
+            }
+
+            this.updateWaitingRoom();
+        }
     }
 
     startNewGame() {
