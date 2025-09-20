@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>루미큐브 수학 게임</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- 로비 화면 -->
+    <div id="lobby-screen" class="screen">
+        <div class="lobby-container">
+            <h1>🃏 Math Rumikub</h1>
+            <p class="lobby-description">수학과 전략이 만나는 루미큐브 변형 게임</p>
+            
+            <div class="lobby-buttons">
+                <button id="create-game-btn" class="lobby-btn primary">
+                    🎮 게임 시작하기
+                </button>
+                <button id="join-game-btn" class="lobby-btn secondary">
+                    🔗 게임 참여하기
+                </button>
+            </div>
+            
+            <div class="lobby-info">
+                <p>• 2-4명이 함께 플레이</p>
+                <p>• 수식을 만들어 정답을 맞히세요</p>
+                <p>• 모든 카드를 먼저 사용하면 승리!</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 대기실 화면 -->
+    <div id="waiting-room-screen" class="screen" style="display: none;">
+        <div class="waiting-room-container">
+            <h2>🏠 게임 대기실</h2>
+            
+            <div class="session-info">
+                <div class="session-code">
+                    <label>참여 코드</label>
+                    <div class="code-display">
+                        <span id="session-code">------</span>
+                        <button id="copy-code-btn" class="copy-btn">📋</button>
+                    </div>
+                </div>
+                <div class="player-count">
+                    <span id="current-players">1</span> / <span id="max-players">4</span> 명
+                </div>
+            </div>
+            
+            <div class="players-list">
+                <h3>참여자 목록</h3>
+                <div id="waiting-players" class="players-grid">
+                    <!-- 플레이어 카드들이 동적으로 추가됨 -->
+                </div>
+            </div>
+            
+            <div class="waiting-room-actions">
+                <!-- 호스트 액션 -->
+                <div id="host-actions" class="action-group" style="display: none;">
+                    <button id="start-multiplayer-game-btn" class="action-btn primary" disabled>
+                        🚀 게임 시작
+                    </button>
+                    <button id="change-settings-btn" class="action-btn secondary">
+                        ⚙️ 설정 변경
+                    </button>
+                </div>
+                
+                <!-- 게스트 액션 -->
+                <div id="guest-actions" class="action-group" style="display: none;">
+                    <button id="toggle-ready-btn" class="action-btn primary">
+                        ✋ 준비 완료
+                    </button>
+                </div>
+                
+                <!-- 공통 액션 -->
+                <div class="action-group">
+                    <button id="leave-room-btn" class="action-btn danger">
+                        🚪 나가기
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 게임 화면 -->
+    <div id="game-screen" class="game-container" style="display: none;">
+
+        <!-- 게임 설정 모달 -->
+        <div id="settings-modal" class="modal">
+            <div class="modal-content">
+                <h2>게임 설정</h2>
+                <div class="setting-group">
+                    <label for="number-sets">숫자 카드 세트 수 (n):</label>
+                    <input type="number" id="number-sets" min="2" max="5" value="3">
+                </div>
+                <div class="setting-group">
+                    <label for="operator-sets">연산자 카드 세트 수 (m):</label>
+                    <input type="number" id="operator-sets" min="2" max="6" value="4">
+                </div>
+                <div class="setting-group">
+                    <label for="joker-count">조커 카드 수 (l):</label>
+                    <input type="number" id="joker-count" min="1" max="8" value="2">
+                </div>
+                <div class="setting-group">
+                    <label for="player-count">플레이어 수:</label>
+                    <select id="player-count">
+                        <option value="2">2명</option>
+                        <option value="3">3명</option>
+                        <option value="4" selected>4명</option>
+                    </select>
+                </div>
+                <div class="setting-group">
+                    <label for="initial-number-cards">초기 숫자 카드 수 (a):</label>
+                    <input type="number" id="initial-number-cards" min="5" max="30" value="13">
+                </div>
+                <div class="setting-group">
+                    <label for="initial-operator-cards">초기 연산자 카드 수 (b):</label>
+                    <input type="number" id="initial-operator-cards" min="3" max="20" value="5">
+                </div>
+                <div class="modal-buttons">
+                    <button id="start-game" class="btn-primary">게임 시작</button>
+                    <button id="close-settings" class="btn-secondary">취소</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 게임 정보 헤더 -->
+        <div class="game-info-header">
+            <div class="info-content">
+                정답카드: <span id="target-cards">--</span> | 
+                가능한 정답: <span id="target-answer">--</span> | 
+                플레이어 차례: <span id="current-player">1</span>
+            </div>
+        </div>
+
+        <!-- 메인 게임 영역 -->
+        <main class="game-main">
+            <!-- 필드 영역 -->
+            <div class="field-area">
+                <h3>필드</h3>
+                <div class="field-equations" id="field-equations">
+                    <!-- 필드의 등식들 -->
+                    <p class="no-equations">아직 등식이 없습니다.</p>
+                </div>
+            </div>
+
+            <!-- 수식 구성 영역 -->
+            <div class="expression-area">
+                <h3>수식 구성</h3>
+                <div class="expression-display" id="expression-display">
+                    <!-- 구성 중인 수식이 표시됨 -->
+                </div>
+                <div class="expression-result" id="expression-result">
+                    결과: <span id="calculated-result">--</span>
+                </div>
+            </div>
+
+            <!-- 하단 카드 영역 -->
+            <div class="cards-area">
+                <div class="numbers-section">
+                    <h4>숫자 카드 (<span id="number-count">--</span>장)</h4>
+                    <div class="hand-numbers" id="hand-numbers">
+                        <!-- 플레이어의 숫자 카드들 -->
+                    </div>
+                </div>
+                <div class="operators-section">
+                    <h4>연산자 카드 (<span id="operator-count">--</span>장)</h4>
+                    <div class="hand-operators" id="hand-operators">
+                        <!-- 플레이어의 연산자 카드들 -->
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- 우측 액션 영역 -->
+        <div class="actions-area">
+            <!-- 액션 버튼들 -->
+            <div class="action-buttons">
+                <button id="submit-expression" class="action-btn submit-btn" disabled>정답 제출</button>
+                <button id="clear-expression" class="action-btn reset-btn">초기화</button>
+                <button id="number-card-btn" class="action-btn card-btn">숫자 카드 뽑기</button>
+                <button id="operator-card-btn" class="action-btn card-btn">연산자 카드 뽑기</button>
+            </div>
+            
+            <!-- 게임 로그 -->
+            <div class="game-log-section">
+                <h4>게임 로그</h4>
+                <div class="game-log" id="log-messages">
+                    <p>게임을 시작합니다...</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 숨겨진 플레이어 리스트 -->
+        <div id="players-list" style="display: none;">
+            <!-- 각 플레이어의 카드 수 표시 -->
+        </div>
+
+    </div>
+
+    <!-- 게임 참여 모달 -->
+    <div id="join-game-modal" class="modal">
+        <div class="modal-content">
+            <h2>🔗 게임 참여</h2>
+            <div class="setting-group">
+                <label for="join-code">참여 코드 (6자리)</label>
+                <input type="text" id="join-code" placeholder="예: ABC123" maxlength="6" style="text-transform: uppercase;">
+            </div>
+            <div class="setting-group">
+                <label for="player-name">플레이어 이름</label>
+                <input type="text" id="player-name" placeholder="닉네임을 입력하세요" maxlength="20">
+            </div>
+            <div class="modal-buttons">
+                <button id="join-game-confirm" class="btn-primary">참여하기</button>
+                <button id="join-game-cancel" class="btn-secondary">취소</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 조커 선택 모달 -->
+    <div id="joker-selection-modal" class="modal">
+        <div class="modal-content joker-modal">
+            <h2>🃏 조커 카드 연산자 선택</h2>
+            <p>조커 카드로 사용할 연산자를 선택해주세요:</p>
+            <div class="joker-operators">
+                <button class="joker-option" data-operator="+">+</button>
+                <button class="joker-option" data-operator="-">−</button>
+                <button class="joker-option" data-operator="×">×</button>
+                <button class="joker-option" data-operator="÷">÷</button>
+            </div>
+            <button id="cancel-joker" class="btn-secondary">취소</button>
+        </div>
+    </div>
+
+    <!-- 승리 모달 -->
+    <div id="victory-modal" class="modal">
+        <div class="modal-content">
+            <h2>🎉 게임 끝!</h2>
+            <p id="victory-message"></p>
+            <button id="restart-game" class="btn-primary">다시 시작</button>
+        </div>
+    </div>
+
+    <script src="game.js"></script>
+</body>
+</html>
