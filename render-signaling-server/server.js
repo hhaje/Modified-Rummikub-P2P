@@ -431,14 +431,26 @@ class SignalingServer {
         console.log('fromClientId:', fromClientId);
         console.log('data:', data);
         
-        const { to: targetClientId, data: responseData } = data;
+        const { to: targetPlayerName, data: responseData } = data;
         
-        // 대상 클라이언트 찾기
-        const targetClient = this.clients.get(targetClientId);
+        // 플레이어 이름으로 클라이언트 찾기
+        let targetClient = null;
+        let targetClientId = null;
+        
+        for (const [clientId, client] of this.clients.entries()) {
+            if (client.playerName === targetPlayerName) {
+                targetClient = client;
+                targetClientId = clientId;
+                break;
+            }
+        }
+        
         if (!targetClient) {
-            console.log('대상 클라이언트를 찾을 수 없음:', targetClientId);
+            console.log('대상 클라이언트를 찾을 수 없음:', targetPlayerName);
             return;
         }
+        
+        console.log('대상 클라이언트 찾음:', targetClientId, targetPlayerName);
         
         // 대상 클라이언트가 연결되어 있는지 확인
         if (targetClient.ws.readyState !== WebSocket.OPEN) {
@@ -520,19 +532,29 @@ class SignalingServer {
         }
         
         // 모든 게스트에게 전송 (발신자 제외)
+        console.log('게스트 목록:', session.guests);
         session.guests.forEach(guestId => {
             const guestClient = this.clients.get(guestId);
+            console.log(`게스트 ${guestId} 클라이언트:`, guestClient);
+            
             if (guestClient && guestClient.ws && 
                 guestClient.ws !== this.clients.get(senderClientId)?.ws && 
                 guestClient.ws.readyState === WebSocket.OPEN) {
-                guestClient.ws.send(JSON.stringify({
+                const guestBroadcastMessage = {
                     type: 'broadcast',
                     data: message,
                     from: senderClientId,
                     timestamp: Date.now()
-                }));
+                };
+                console.log(`게스트 ${guestId}에게 전송할 브로드캐스트 메시지:`, guestBroadcastMessage);
+                guestClient.ws.send(JSON.stringify(guestBroadcastMessage));
+                console.log(`게스트 ${guestId}에게 브로드캐스트 메시지 전송 성공`);
             } else if (guestClient && !guestClient.ws) {
                 console.log('게스트 클라이언트에 WebSocket이 없음:', guestId);
+            } else if (!guestClient) {
+                console.log('게스트 클라이언트를 찾을 수 없음:', guestId);
+            } else {
+                console.log(`게스트 ${guestId} WebSocket 상태:`, guestClient.ws.readyState);
             }
         });
         
