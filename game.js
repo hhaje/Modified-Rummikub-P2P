@@ -917,7 +917,9 @@ class P2PManager {
     }
     
     async handleWebSocketMessage(message) {
-        console.log(`WebSocket 메시지 수신:`, message);
+        console.log(`=== WebSocket 메시지 수신 ===`);
+        console.log(`메시지 타입:`, message.type);
+        console.log(`전체 메시지:`, message);
         
         const { type, data, from, sessionCode, clientId, timestamp } = message;
         

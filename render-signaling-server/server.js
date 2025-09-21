@@ -393,7 +393,15 @@ class SignalingServer {
             timestamp: Date.now()
         };
         console.log('호스트에게 전송할 guest_joined 메시지:', guestJoinedMessage);
-        hostClient.ws.send(JSON.stringify(guestJoinedMessage));
+        console.log('호스트 WebSocket 상태:', hostClient.ws.readyState);
+        console.log('호스트 WebSocket URL:', hostClient.ws.url);
+        
+        try {
+            hostClient.ws.send(JSON.stringify(guestJoinedMessage));
+            console.log('guest_joined 메시지 전송 성공');
+        } catch (error) {
+            console.error('guest_joined 메시지 전송 실패:', error);
+        }
         
         // 게스트에게 참여 성공 알림
         ws.send(JSON.stringify({
