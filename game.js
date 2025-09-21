@@ -1793,6 +1793,20 @@ class P2PManager {
             case 'player_ready':
                 console.log('=== player_ready 메시지 처리 ===');
                 console.log('플레이어 준비 상태 업데이트:', message.data.playerId, message.data.isReady);
+                console.log('현재 this.players 목록:', Array.from(this.players.keys()));
+                
+                // 플레이어가 없으면 자동으로 추가
+                if (!this.players.has(message.data.playerId)) {
+                    console.log('플레이어가 없음, 자동 추가:', message.data.playerId);
+                    this.players.set(message.data.playerId, {
+                        id: message.data.playerId,
+                        name: message.data.playerId,
+                        isHost: message.data.playerId === this.playerName,
+                        isReady: false,
+                        connection: null
+                    });
+                }
+                
                 this.updatePlayerReady(message.data.playerId, message.data.isReady);
                 console.log('현재 플레이어 목록:', this.getPlayerList());
                 this.gameController.updateWaitingRoom();
