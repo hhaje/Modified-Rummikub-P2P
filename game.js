@@ -861,7 +861,7 @@ class P2PManager {
         
         // WebSocket 기반 시그널링 서버 연결
         // 로컬 개발: ws://localhost:8080/ws
-        // Render 배포: wss://rumikub-signaling-server.onrender.com/ws
+        // Render 배포: wss://modified-rummikub-p2p.onrender.com/ws
         // 같은 Wi-Fi: ws://192.168.1.100:8080/ws (실제 IP로 변경)
         // 인터넷: ws://your-public-ip:8080/ws
         
@@ -870,7 +870,7 @@ class P2PManager {
             this.signalingServer = 'ws://localhost:8080/ws';
         } else {
             // Render 배포 서버 사용
-            this.signalingServer = 'wss://rumikub-signaling-server.onrender.com/ws';
+            this.signalingServer = 'wss://modified-rummikub-p2p.onrender.com/ws';
         }
         this.ws = null;
         this.clientId = null;
