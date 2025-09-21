@@ -177,6 +177,8 @@ class SignalingServer {
         
         console.log(`메시지 수신 (${clientId}):`, type);
         console.log('메시지 데이터:', data);
+        console.log('메시지 타입:', typeof data);
+        console.log('메시지 키들:', Object.keys(data));
         
         switch (type) {
             case 'create_session':
@@ -207,6 +209,8 @@ class SignalingServer {
                 break;
                 
             case 'join_response':
+                console.log('join_response 처리 시작');
+                console.log('data:', data);
                 this.forwardJoinResponse(data, clientId);
                 break;
                 
