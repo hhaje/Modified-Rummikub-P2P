@@ -51,11 +51,41 @@ class SignalingServer {
                     code,
                     host: this.clients.get(session.host)?.playerName || 'Unknown',
                     guestCount: session.guests.length,
-                    createdAt: session.createdAt
+                    createdAt: session.createdAt,
+                    hostId: session.host,
+                    guests: session.guests
                 }));
                 
                 res.writeHead(200, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify(sessionList));
+                res.end(JSON.stringify({
+                    sessions: sessionList,
+                    totalSessions: this.sessions.size,
+                    totalClients: this.clients.size
+                }));
+                return;
+            }
+            
+            // 호스트 클라이언트 ID 조회 엔드포인트
+            if (req.url.startsWith('/host/')) {
+                const sessionCode = req.url.split('/')[2];
+                const session = this.sessions.get(sessionCode);
+                
+                if (session) {
+                    const hostClient = this.clients.get(session.host);
+                    res.writeHead(200, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({
+                        success: true,
+                        hostId: session.host,
+                        hostName: hostClient?.playerName || 'Unknown',
+                        sessionCode: sessionCode
+                    }));
+                } else {
+                    res.writeHead(404, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({
+                        success: false,
+                        error: 'Session not found'
+                    }));
+                }
                 return;
             }
             
@@ -158,6 +188,14 @@ class SignalingServer {
                 console.log('sessionCode:', sessionCode);
                 console.log('playerName:', playerName);
                 this.joinSession(ws, clientId, sessionCode, playerName);
+                break;
+                
+            case 'direct_join':
+                console.log('direct_join 처리 시작');
+                console.log('hostClientId:', data.hostClientId);
+                console.log('playerName:', data.playerName);
+                console.log('sessionCode:', data.sessionCode);
+                this.directJoin(ws, clientId, data.hostClientId, data.playerName, data.sessionCode);
                 break;
                 
             case 'signal':
@@ -301,6 +339,68 @@ class SignalingServer {
         }));
         
         console.log(`게스트 참여: ${playerName} (세션: ${sessionCode})`);
+    }
+    
+    directJoin(ws, clientId, hostClientId, playerName, sessionCode) {
+        console.log('=== directJoin 호출 ===');
+        console.log('clientId:', clientId);
+        console.log('hostClientId:', hostClientId);
+        console.log('playerName:', playerName);
+        console.log('sessionCode:', sessionCode);
+        
+        // 호스트 클라이언트가 존재하는지 확인
+        const hostClient = this.clients.get(hostClientId);
+        if (!hostClient) {
+            console.log('호스트 클라이언트를 찾을 수 없음:', hostClientId);
+            ws.send(JSON.stringify({
+                type: 'error',
+                message: 'Host not found'
+            }));
+            return;
+        }
+        
+        // 호스트가 연결되어 있는지 확인
+        if (hostClient.ws.readyState !== WebSocket.OPEN) {
+            console.log('호스트가 연결되어 있지 않음:', hostClientId);
+            ws.send(JSON.stringify({
+                type: 'error',
+                message: 'Host is not available'
+            }));
+            return;
+        }
+        
+        console.log('호스트 클라이언트 찾음:', hostClient);
+        
+        // 게스트 클라이언트 정보 저장
+        this.clients.set(clientId, {
+            playerName: playerName,
+            sessionCode: sessionCode,
+            isHost: false,
+            hostClientId: hostClientId,
+            isReady: false
+        });
+        
+        // 호스트에게 게스트 참여 알림
+        const guestJoinedMessage = {
+            type: 'guest_joined',
+            guestId: clientId,
+            playerName: playerName,
+            sessionCode: sessionCode,
+            timestamp: Date.now()
+        };
+        console.log('호스트에게 전송할 guest_joined 메시지:', guestJoinedMessage);
+        hostClient.ws.send(JSON.stringify(guestJoinedMessage));
+        
+        // 게스트에게 참여 성공 알림
+        ws.send(JSON.stringify({
+            type: 'join_success',
+            sessionCode: sessionCode,
+            clientId: clientId,
+            hostId: hostClientId,
+            timestamp: Date.now()
+        }));
+        
+        console.log(`직접 참여 성공: ${playerName} -> 호스트 ${hostClientId}`);
     }
     
     forwardSignal(sessionCode, to, message, fromClientId) {
