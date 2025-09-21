@@ -938,12 +938,18 @@ class P2PManager {
                 break;
                 
             case 'guest_joined':
+                console.log('guest_joined 메시지 전체:', message);
+                console.log('message.playerName:', message.playerName);
+                console.log('message.sessionCode:', message.sessionCode);
+                console.log('message.guestId:', message.guestId);
+                
                 // guest_joined 메시지에서 sessionCode 추출
                 const joinRequestData = {
                     playerName: message.playerName,
                     sessionCode: message.sessionCode,
                     guestId: message.guestId
                 };
+                console.log('joinRequestData:', joinRequestData);
                 await this.handleJoinRequest(joinRequestData);
                 break;
                 
