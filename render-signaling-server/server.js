@@ -206,6 +206,10 @@ class SignalingServer {
                 this.broadcastToSession(sessionCode, message, clientId);
                 break;
                 
+            case 'join_response':
+                this.forwardJoinResponse(data, clientId);
+                break;
+                
             case 'ready':
                 this.handleReady(clientId, sessionCode);
                 break;
@@ -401,6 +405,40 @@ class SignalingServer {
         }));
         
         console.log(`직접 참여 성공: ${playerName} -> 호스트 ${hostClientId}`);
+    }
+    
+    forwardJoinResponse(data, fromClientId) {
+        console.log('=== forwardJoinResponse 호출 ===');
+        console.log('fromClientId:', fromClientId);
+        console.log('data:', data);
+        
+        const { to: targetClientId, data: responseData } = data;
+        
+        // 대상 클라이언트 찾기
+        const targetClient = this.clients.get(targetClientId);
+        if (!targetClient) {
+            console.log('대상 클라이언트를 찾을 수 없음:', targetClientId);
+            return;
+        }
+        
+        // 대상 클라이언트가 연결되어 있는지 확인
+        if (targetClient.ws.readyState !== WebSocket.OPEN) {
+            console.log('대상 클라이언트가 연결되어 있지 않음:', targetClientId);
+            return;
+        }
+        
+        // 게스트에게 참여 응답 전달
+        const joinResponseMessage = {
+            type: 'join_response',
+            data: responseData,
+            from: fromClientId,
+            timestamp: Date.now()
+        };
+        
+        console.log('게스트에게 전달할 join_response 메시지:', joinResponseMessage);
+        targetClient.ws.send(JSON.stringify(joinResponseMessage));
+        
+        console.log(`참여 응답 전달 완료: ${fromClientId} -> ${targetClientId}`);
     }
     
     forwardSignal(sessionCode, to, message, fromClientId) {

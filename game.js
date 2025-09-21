@@ -963,6 +963,11 @@ class P2PManager {
                 this.handleGameMessage(data, from);
                 break;
                 
+            case 'join_response':
+                console.log('join_response 메시지 수신:', message);
+                await this.handleJoinResponse(message.data);
+                break;
+                
             case 'error':
                 console.error('=== 서버 오류 발생 ===');
                 console.error('오류 메시지:', message.message || message);
@@ -1241,13 +1246,33 @@ class P2PManager {
         
         // 응답 전송 (전체 플레이어 목록 포함)
         console.log('참여 응답 전송 중:', data.playerName);
-        this.broadcastToLocal('join_response', {
-            sessionCode: this.sessionCode,
-            accepted: true,
-            to: data.playerName,
-            from: this.playerName,
-            playerList: Array.from(this.players.values())
-        });
+        
+        // 서버를 통해 게스트에게 응답 전송
+        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+            const joinResponseMessage = {
+                type: 'join_response',
+                data: {
+                    sessionCode: this.sessionCode,
+                    accepted: true,
+                    to: data.playerName,
+                    from: this.playerName,
+                    playerList: Array.from(this.players.values())
+                },
+                to: data.guestId, // 게스트 클라이언트 ID
+                from: this.clientId
+            };
+            console.log('서버를 통해 게스트에게 응답 전송:', joinResponseMessage);
+            this.ws.send(JSON.stringify(joinResponseMessage));
+        } else {
+            // 폴백: BroadcastChannel 사용
+            this.broadcastToLocal('join_response', {
+                sessionCode: this.sessionCode,
+                accepted: true,
+                to: data.playerName,
+                from: this.playerName,
+                playerList: Array.from(this.players.values())
+            });
+        }
         console.log('참여 응답 전송 완료');
         
         this.gameController.updateWaitingRoom();
