@@ -1308,8 +1308,23 @@ class P2PManager {
 
     async createPeerConnection(remotePlayerName) {
         console.log(`Peer connection 생성 중: ${remotePlayerName}`);
+        
+        // ICE 연결 상태 모니터링
         const peerConnection = new RTCPeerConnection(this.rtcConfig);
         this.peerConnections.set(remotePlayerName, peerConnection);
+        
+        // ICE 연결 상태 변경 감지
+        peerConnection.oniceconnectionstatechange = () => {
+            console.log(`ICE 연결 상태 변경 (${remotePlayerName}): ${peerConnection.iceConnectionState}`);
+            if (peerConnection.iceConnectionState === 'connected' || 
+                peerConnection.iceConnectionState === 'completed') {
+                console.log(`P2P 연결 성공: ${remotePlayerName}`);
+            } else if (peerConnection.iceConnectionState === 'failed' || 
+                       peerConnection.iceConnectionState === 'disconnected') {
+                console.log(`P2P 연결 실패: ${remotePlayerName}, 상태: ${peerConnection.iceConnectionState}`);
+            }
+        };
+        
         console.log(`Peer connection 생성 완료: ${remotePlayerName}`);
         
         // 데이터 채널 생성 (호스트만)
@@ -1437,14 +1452,14 @@ class P2PManager {
             }
         }, 1000);
         
-        // 10초 후에도 연결되지 않으면 타임아웃
+        // 30초 후에도 연결되지 않으면 타임아웃
         setTimeout(() => {
             if (dataChannel.readyState !== 'open') {
                 console.error(`데이터 채널 연결 타임아웃: ${remotePlayerName}, 상태: ${dataChannel.readyState}`);
                 clearInterval(statusCheckInterval);
                 this.retryConnection(remotePlayerName);
             }
-        }, 10000);
+        }, 30000);
     }
     
     checkPendingMessages(playerName) {
@@ -1731,6 +1746,19 @@ class P2PManager {
     retryConnection(playerName) {
         console.log(`연결 재시도 시작: ${playerName}`);
         
+        // 재시도 횟수 제한 (최대 3회)
+        if (!this.retryCount) {
+            this.retryCount = new Map();
+        }
+        
+        const currentRetries = this.retryCount.get(playerName) || 0;
+        if (currentRetries >= 3) {
+            console.error(`최대 재시도 횟수 초과: ${playerName}`);
+            return;
+        }
+        
+        this.retryCount.set(playerName, currentRetries + 1);
+        
         // 기존 연결 정리
         const existingConnection = this.peerConnections.get(playerName);
         if (existingConnection) {
@@ -1744,11 +1772,15 @@ class P2PManager {
             this.dataChannels.delete(playerName);
         }
         
-        // 잠시 후 재연결 시도
+        // 재시도 간격을 점진적으로 증가 (2초, 5초, 10초)
+        const retryDelays = [2000, 5000, 10000];
+        const delay = retryDelays[currentRetries] || 10000;
+        
+        console.log(`${delay}ms 후 재연결 시도 (${currentRetries + 1}/3): ${playerName}`);
         setTimeout(() => {
             console.log(`재연결 시도: ${playerName}`);
             this.createPeerConnection(playerName);
-        }, 2000);
+        }, delay);
     }
 
     handleGameMessage(message, from) {
