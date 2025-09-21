@@ -1,0 +1,30 @@
+{
+  "name": "rumikub-signaling-server",
+  "version": "1.0.0",
+  "description": "WebSocket signaling server for Rummikub Math Game P2P multiplayer",
+  "main": "signaling-server.js",
+  "scripts": {
+    "start": "node signaling-server.js",
+    "dev": "nodemon signaling-server.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "websocket",
+    "signaling",
+    "p2p",
+    "webrtc",
+    "rummikub",
+    "multiplayer"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "dependencies": {
+    "ws": "^8.14.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}

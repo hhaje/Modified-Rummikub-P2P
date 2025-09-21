@@ -859,12 +859,124 @@ class P2PManager {
             ]
         };
         
-        // 로컬 네트워크 브로드캐스트를 위한 BroadcastChannel
-        this.broadcastChannel = new BroadcastChannel('rumikub-local-p2p');
-        this.setupBroadcastChannel();
+        // WebSocket 기반 시그널링 서버 연결
+        // 로컬 개발: ws://localhost:8080/ws
+        // 같은 Wi-Fi: ws://192.168.1.100:8080/ws (실제 IP로 변경)
+        // 인터넷: ws://your-public-ip:8080/ws
+        this.signalingServer = 'ws://localhost:8080/ws'; // 시그널링 서버 주소
+        this.ws = null;
+        this.clientId = null;
+        this.setupWebSocketConnection();
     }
 
-    setupBroadcastChannel() {
+    setupWebSocketConnection() {
+        try {
+            this.ws = new WebSocket(this.signalingServer);
+            
+            this.ws.onopen = () => {
+                console.log('시그널링 서버에 연결됨');
+            };
+            
+            this.ws.onmessage = async (event) => {
+                try {
+                    const message = JSON.parse(event.data);
+                    await this.handleWebSocketMessage(message);
+                } catch (error) {
+                    console.error('WebSocket 메시지 처리 오류:', error);
+                }
+            };
+            
+            this.ws.onclose = () => {
+                console.log('시그널링 서버 연결이 끊어졌습니다.');
+                // 재연결 시도
+                setTimeout(() => {
+                    this.setupWebSocketConnection();
+                }, 3000);
+            };
+            
+            this.ws.onerror = (error) => {
+                console.error('WebSocket 오류:', error);
+            };
+            
+        } catch (error) {
+            console.error('WebSocket 연결 실패:', error);
+            // BroadcastChannel로 폴백
+            this.setupBroadcastChannelFallback();
+        }
+    }
+    
+    async handleWebSocketMessage(message) {
+        const { type, data, from } = message;
+        console.log(`WebSocket 메시지 수신: ${type}`, { from, data });
+        
+        switch (type) {
+            case 'session_created':
+                this.clientId = data.clientId;
+                console.log('세션 생성됨:', data.sessionCode);
+                break;
+                
+            case 'join_success':
+                this.clientId = data.clientId;
+                console.log('세션 참여 성공:', data.sessionCode);
+                break;
+                
+            case 'guest_joined':
+                await this.handleJoinRequest(data);
+                break;
+                
+            case 'signal':
+                await this.handleSignal(data);
+                break;
+                
+            case 'broadcast':
+                this.handleGameMessage(data, from);
+                break;
+                
+            case 'error':
+                console.error('서버 오류:', data.message);
+                break;
+        }
+    }
+    
+    async handleSignal(data) {
+        const { from, data: signalData } = data;
+        
+        switch (signalData.type) {
+            case 'join_request':
+                if (this.isHost && signalData.sessionCode === this.sessionCode) {
+                    await this.handleJoinRequest(signalData);
+                }
+                break;
+                
+            case 'join_response':
+                if (!this.isHost && signalData.to === this.playerName) {
+                    await this.handleJoinResponse(signalData);
+                }
+                break;
+                
+            case 'ice_candidate':
+                if (signalData.to === this.playerName) {
+                    await this.handleIceCandidate(signalData);
+                }
+                break;
+                
+            case 'offer':
+                if (signalData.to === this.playerName) {
+                    await this.handleOffer(signalData);
+                }
+                break;
+                
+            case 'answer':
+                if (signalData.to === this.playerName) {
+                    await this.handleAnswer(signalData);
+                }
+                break;
+        }
+    }
+    
+    setupBroadcastChannelFallback() {
+        console.log('BroadcastChannel로 폴백');
+        this.broadcastChannel = new BroadcastChannel('rumikub-local-p2p');
         this.broadcastChannel.addEventListener('message', async (event) => {
             const { type, data, from } = event.data;
             console.log(`브로드캐스트 메시지 수신: ${type}`, { from, data });
@@ -936,11 +1048,22 @@ class P2PManager {
         });
         
         // 세션 브로드캐스트
-        this.broadcastToLocal('session_announce', {
-            sessionCode: this.sessionCode,
-            hostName: playerName,
-            maxPlayers: gameSettings.playerCount
-        });
+        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+            // WebSocket을 통한 세션 생성
+            this.ws.send(JSON.stringify({
+                type: 'create_session',
+                sessionCode: this.sessionCode,
+                playerName: playerName,
+                gameSettings: gameSettings
+            }));
+        } else {
+            // BroadcastChannel 폴백
+            this.broadcastToLocal('session_announce', {
+                sessionCode: this.sessionCode,
+                hostName: playerName,
+                maxPlayers: gameSettings.playerCount
+            });
+        }
         
         console.log(`세션 생성됨: ${this.sessionCode}`);
         return this.sessionCode;
@@ -957,11 +1080,21 @@ class P2PManager {
         
         // 호스트에게 참여 요청
         console.log('호스트에게 참여 요청 전송');
-        this.broadcastToLocal('join_request', {
-            sessionCode,
-            playerName,
-            from: playerName
-        });
+        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+            // WebSocket을 통한 세션 참여
+            this.ws.send(JSON.stringify({
+                type: 'join_session',
+                sessionCode: sessionCode,
+                playerName: playerName
+            }));
+        } else {
+            // BroadcastChannel 폴백
+            this.broadcastToLocal('join_request', {
+                sessionCode,
+                playerName,
+                from: playerName
+            });
+        }
         console.log('참여 요청 전송 완료');
         
         return new Promise((resolve, reject) => {
@@ -1386,12 +1519,29 @@ class P2PManager {
 
     broadcastToLocal(type, data) {
         console.log(`로컬 브로드캐스트 전송: ${type}`, data);
-        this.broadcastChannel.postMessage({
-            type,
-            data,
-            from: this.playerName,
-            timestamp: Date.now()
-        });
+        
+        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+            // WebSocket을 통한 전송
+            this.ws.send(JSON.stringify({
+                type: 'broadcast',
+                sessionCode: this.sessionCode,
+                data: {
+                    type,
+                    data,
+                    from: this.playerName,
+                    timestamp: Date.now()
+                }
+            }));
+        } else if (this.broadcastChannel) {
+            // BroadcastChannel 폴백
+            this.broadcastChannel.postMessage({
+                type,
+                data,
+                from: this.playerName,
+                timestamp: Date.now()
+            });
+        }
+        
         console.log(`로컬 브로드캐스트 전송 완료: ${type}`);
     }
 
@@ -4372,7 +4522,7 @@ class GameController {
             
             if (affectedEquations.length > 0) {
                 console.log('깨진 등식 처리 시작');
-                this.handleBrokenEquations(affectedEquations, currentPlayer);
+            this.handleBrokenEquations(affectedEquations, currentPlayer);
             } else {
                 console.log('영향받는 등식이 없음');
             }
