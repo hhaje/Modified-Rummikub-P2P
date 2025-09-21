@@ -962,7 +962,7 @@ class P2PManager {
                 break;
                 
             case 'broadcast':
-                this.handleGameMessage(data, from);
+                this.handleGameMessage(message.data, from);
                 break;
                 
             case 'join_response':

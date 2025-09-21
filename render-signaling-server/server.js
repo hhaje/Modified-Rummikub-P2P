@@ -485,22 +485,38 @@ class SignalingServer {
     }
     
     broadcastToSession(sessionCode, message, senderClientId) {
+        console.log('=== broadcastToSession 호출 ===');
+        console.log('sessionCode:', sessionCode);
+        console.log('message:', message);
+        console.log('senderClientId:', senderClientId);
+        
         const session = this.sessions.get(sessionCode);
         if (!session) {
             console.log('세션을 찾을 수 없음:', sessionCode);
             return;
         }
         
+        console.log('세션 정보:', session);
+        
         // 호스트에게 전송 (발신자 제외)
         const hostClient = this.clients.get(session.host);
+        console.log('호스트 클라이언트:', hostClient);
+        console.log('호스트 ID:', session.host);
+        console.log('발신자 ID:', senderClientId);
+        
         if (hostClient && hostClient.ws !== this.clients.get(senderClientId)?.ws && 
             hostClient.ws.readyState === WebSocket.OPEN) {
-            hostClient.ws.send(JSON.stringify({
+            const broadcastMessage = {
                 type: 'broadcast',
                 data: message,
                 from: senderClientId,
                 timestamp: Date.now()
-            }));
+            };
+            console.log('호스트에게 전송할 브로드캐스트 메시지:', broadcastMessage);
+            hostClient.ws.send(JSON.stringify(broadcastMessage));
+            console.log('호스트에게 브로드캐스트 메시지 전송 성공');
+        } else {
+            console.log('호스트에게 메시지 전송 실패 - 호스트 없음 또는 연결 끊김');
         }
         
         // 모든 게스트에게 전송 (발신자 제외)
