@@ -369,16 +369,23 @@ class SignalingServer {
         console.log('sessionCode:', sessionCode);
         console.log('playerName:', playerName);
         
+        // 현재 클라이언트 목록 출력
+        console.log('현재 클라이언트 목록:', Array.from(this.clients.keys()));
+        console.log('클라이언트 상세 정보:', Array.from(this.clients.entries()));
+        
         // 세션 찾기
         const session = this.sessions.get(sessionCode);
         if (!session) {
             console.log('세션을 찾을 수 없음:', sessionCode);
+            console.log('현재 세션 목록:', Array.from(this.sessions.keys()));
             ws.send(JSON.stringify({
                 type: 'error',
                 message: 'Session not found'
             }));
             return;
         }
+        
+        console.log('세션 찾음:', session);
         
         // 호스트 클라이언트 찾기
         const hostClient = this.clients.get(session.host);
@@ -393,14 +400,18 @@ class SignalingServer {
         
         // 게스트 클라이언트 정보 업데이트 (기존 정보 유지)
         const existingClient = this.clients.get(clientId);
+        console.log('기존 클라이언트 정보:', existingClient);
+        
         if (existingClient) {
             existingClient.playerName = playerName;
             existingClient.sessionCode = sessionCode;
             existingClient.isHost = false;
             existingClient.isReady = false;
+            console.log('클라이언트 정보 업데이트 완료:', existingClient);
         } else {
             // 클라이언트가 존재하지 않는 경우 (이론적으로 발생하지 않아야 함)
             console.error('클라이언트가 존재하지 않음:', clientId);
+            console.error('현재 클라이언트 목록:', Array.from(this.clients.keys()));
             ws.send(JSON.stringify({
                 type: 'error',
                 message: 'Client not found'
