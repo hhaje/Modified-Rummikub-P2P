@@ -391,13 +391,22 @@ class SignalingServer {
             return;
         }
         
-        // 게스트 클라이언트 정보 저장
-        this.clients.set(clientId, {
-            playerName: playerName,
-            sessionCode: sessionCode,
-            isHost: false,
-            isReady: false
-        });
+        // 게스트 클라이언트 정보 업데이트 (기존 정보 유지)
+        const existingClient = this.clients.get(clientId);
+        if (existingClient) {
+            existingClient.playerName = playerName;
+            existingClient.sessionCode = sessionCode;
+            existingClient.isHost = false;
+            existingClient.isReady = false;
+        } else {
+            // 클라이언트가 존재하지 않는 경우 (이론적으로 발생하지 않아야 함)
+            console.error('클라이언트가 존재하지 않음:', clientId);
+            ws.send(JSON.stringify({
+                type: 'error',
+                message: 'Client not found'
+            }));
+            return;
+        }
         
         // 게스트를 세션에 추가
         session.guests.push(clientId);
@@ -497,7 +506,8 @@ class SignalingServer {
         // 모든 게스트에게 전송 (발신자 제외)
         session.guests.forEach(guestId => {
             const guestClient = this.clients.get(guestId);
-            if (guestClient && guestClient.ws !== this.clients.get(senderClientId)?.ws && 
+            if (guestClient && guestClient.ws && 
+                guestClient.ws !== this.clients.get(senderClientId)?.ws && 
                 guestClient.ws.readyState === WebSocket.OPEN) {
                 guestClient.ws.send(JSON.stringify({
                     type: 'broadcast',
@@ -505,6 +515,8 @@ class SignalingServer {
                     from: senderClientId,
                     timestamp: Date.now()
                 }));
+            } else if (guestClient && !guestClient.ws) {
+                console.log('게스트 클라이언트에 WebSocket이 없음:', guestId);
             }
         });
         
