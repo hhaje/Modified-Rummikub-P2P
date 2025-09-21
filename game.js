@@ -962,7 +962,8 @@ class P2PManager {
                 break;
                 
             case 'broadcast':
-                this.handleGameMessage(message.data, from);
+                console.log('broadcast 케이스 처리:', message.data);
+                this.handleGameMessage(message.data.data, from);
                 break;
                 
             case 'join_response':
