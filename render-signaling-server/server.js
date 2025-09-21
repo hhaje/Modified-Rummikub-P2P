@@ -211,7 +211,7 @@ class SignalingServer {
                 break;
                 
             case 'broadcast':
-                this.broadcastToSession(sessionCode, message, clientId);
+                this.broadcastToSession(sessionCode, data.data, clientId);
                 break;
                 
             case 'join_response':
