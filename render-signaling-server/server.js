@@ -493,7 +493,7 @@ class SignalingServer {
         
         // 호스트에게 전송 (발신자 제외)
         const hostClient = this.clients.get(session.host);
-        if (hostClient && hostClient.ws !== this.clients.get(senderClientId)?.ws && 
+        if (hostClient && session.host !== senderClientId && 
             hostClient.ws.readyState === WebSocket.OPEN) {
             hostClient.ws.send(JSON.stringify({
                 type: 'broadcast',
@@ -507,7 +507,7 @@ class SignalingServer {
         session.guests.forEach(guestId => {
             const guestClient = this.clients.get(guestId);
             if (guestClient && guestClient.ws && 
-                guestClient.ws !== this.clients.get(senderClientId)?.ws && 
+                guestId !== senderClientId && 
                 guestClient.ws.readyState === WebSocket.OPEN) {
                 guestClient.ws.send(JSON.stringify({
                     type: 'broadcast',
