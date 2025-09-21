@@ -1648,11 +1648,15 @@ class P2PManager {
         };
         
         // BroadcastChannel을 통한 로컬 네트워크 브로드캐스트
-        this.broadcastChannel.postMessage({
-            type: 'game_message',
-            data: message,
-            from: this.playerName
-        });
+        if (this.broadcastChannel) {
+            this.broadcastChannel.postMessage({
+                type: 'game_message',
+                data: message,
+                from: this.playerName
+            });
+        } else {
+            console.log('BroadcastChannel이 초기화되지 않음, WebSocket을 통해서만 전송');
+        }
         
         // 모든 연결된 플레이어에게 전송 (P2P 연결이 설정된 경우)
         this.dataChannels.forEach((channel, playerName) => {
