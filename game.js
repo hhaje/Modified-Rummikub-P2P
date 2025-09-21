@@ -1647,12 +1647,29 @@ class P2PManager {
             timestamp: Date.now()
         };
         
-        // BroadcastChannel을 통한 로컬 네트워크 브로드캐스트
-        this.broadcastChannel.postMessage({
-            type: 'game_message',
-            data: message,
-            from: this.playerName
-        });
+        // WebSocket을 통한 시그널 서버 브로드캐스트
+        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+            const broadcastMessage = {
+                type: 'broadcast',
+                sessionCode: this.sessionCode,
+                data: message
+            };
+            this.ws.send(JSON.stringify(broadcastMessage));
+            console.log(`시그널 서버 브로드캐스트 전송: ${type}`);
+        } else {
+            console.log('WebSocket 연결 없음, 브로드캐스트 전송 실패');
+        }
+        
+        // BroadcastChannel을 통한 로컬 네트워크 브로드캐스트 (폴백)
+        if (this.broadcastChannel) {
+            this.broadcastChannel.postMessage({
+                type: 'game_message',
+                data: message,
+                from: this.playerName
+            });
+        } else {
+            console.log('BroadcastChannel이 초기화되지 않음');
+        }
         
         // 모든 연결된 플레이어에게 전송 (P2P 연결이 설정된 경우)
         this.dataChannels.forEach((channel, playerName) => {
