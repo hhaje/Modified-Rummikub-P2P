@@ -1606,7 +1606,7 @@ class P2PManager {
         
         if (this.ws && this.ws.readyState === WebSocket.OPEN) {
             // WebSocket을 통한 전송
-            this.ws.send(JSON.stringify({
+            const broadcastMessage = {
                 type: 'broadcast',
                 sessionCode: this.sessionCode,
                 data: {
@@ -1615,7 +1615,17 @@ class P2PManager {
                     from: this.playerName,
                     timestamp: Date.now()
                 }
-            }));
+            };
+            console.log('=== 클라이언트 브로드캐스트 전송 ===');
+            console.log('전송할 메시지:', broadcastMessage);
+            console.log('JSON 문자열:', JSON.stringify(broadcastMessage));
+            
+            try {
+                this.ws.send(JSON.stringify(broadcastMessage));
+                console.log('브로드캐스트 메시지 전송 성공');
+            } catch (error) {
+                console.error('브로드캐스트 메시지 전송 실패:', error);
+            }
         } else if (this.broadcastChannel) {
             // BroadcastChannel 폴백
             this.broadcastChannel.postMessage({

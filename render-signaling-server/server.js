@@ -149,11 +149,18 @@ class SignalingServer {
             }));
             
             ws.on('message', (message) => {
+                console.log('=== 서버 메시지 수신 ===');
+                console.log('원본 메시지:', message);
+                console.log('메시지 타입:', typeof message);
+                console.log('메시지 길이:', message.length);
+                
                 try {
                     const data = JSON.parse(message);
+                    console.log('파싱된 데이터:', data);
                     this.handleMessage(ws, data, clientId);
                 } catch (error) {
                     console.error('메시지 파싱 오류:', error);
+                    console.error('원본 메시지:', message);
                     ws.send(JSON.stringify({
                         type: 'error',
                         message: 'Invalid JSON format'
