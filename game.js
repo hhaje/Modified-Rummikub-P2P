@@ -861,7 +861,7 @@ class P2PManager {
         
         // WebSocket 기반 시그널링 서버 연결
         // 로컬 개발: ws://localhost:8080/ws
-        // Render 배포: wss://modified-rummikub-p2p.onrender.com/ws
+        // Render 배포:wss://modified-rummikub-p2p.onrender.com/ws
         // 같은 Wi-Fi: ws://192.168.1.100:8080/ws (실제 IP로 변경)
         // 인터넷: ws://your-public-ip:8080/ws
         
@@ -888,9 +888,12 @@ class P2PManager {
             this.ws.onmessage = async (event) => {
                 try {
                     const message = JSON.parse(event.data);
+                    console.log('WebSocket 원본 메시지:', event.data);
+                    console.log('파싱된 메시지:', message);
                     await this.handleWebSocketMessage(message);
                 } catch (error) {
                     console.error('WebSocket 메시지 처리 오류:', error);
+                    console.error('원본 메시지:', event.data);
                 }
             };
             
@@ -914,26 +917,32 @@ class P2PManager {
     }
     
     async handleWebSocketMessage(message) {
-        const { type, data, from } = message;
-        console.log(`WebSocket 메시지 수신: ${type}`, { from, data });
+        console.log(`WebSocket 메시지 수신:`, message);
+        
+        const { type, data, from, sessionCode, clientId, timestamp } = message;
         
         switch (type) {
+            case 'connected':
+                this.clientId = clientId;
+                console.log('서버 연결 확인됨:', clientId);
+                break;
+                
             case 'session_created':
-                this.clientId = data.clientId;
-                console.log('세션 생성됨:', data.sessionCode);
+                this.clientId = clientId;
+                console.log('세션 생성됨:', sessionCode);
                 break;
                 
             case 'join_success':
-                this.clientId = data.clientId;
-                console.log('세션 참여 성공:', data.sessionCode);
+                this.clientId = clientId;
+                console.log('세션 참여 성공:', sessionCode);
                 break;
                 
             case 'guest_joined':
-                await this.handleJoinRequest(data);
+                await this.handleJoinRequest(message);
                 break;
                 
             case 'signal':
-                await this.handleSignal(data);
+                await this.handleSignal(message);
                 break;
                 
             case 'broadcast':
@@ -941,13 +950,18 @@ class P2PManager {
                 break;
                 
             case 'error':
-                console.error('서버 오류:', data.message);
+                console.error('서버 오류:', message.message || message);
                 break;
         }
     }
     
-    async handleSignal(data) {
-        const { from, data: signalData } = data;
+    async handleSignal(message) {
+        const { from, data: signalData } = message;
+        
+        if (!signalData) {
+            console.error('시그널 메시지에 data가 없습니다:', message);
+            return;
+        }
         
         switch (signalData.type) {
             case 'join_request':
