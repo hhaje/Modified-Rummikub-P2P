@@ -4493,6 +4493,11 @@ class GameController {
         // 등식 복원
         if (this.originalEquations.length > 0) {
             this.restoreEquations();
+            
+            // 멀티플레이어에서 복원된 등식을 다른 플레이어에게 동기화
+            if (this.isMultiplayer) {
+                this.broadcastFieldEquations();
+            }
         }
         
         // 플레이어 카드 복원 (멀티플레이어에서는 제외)
