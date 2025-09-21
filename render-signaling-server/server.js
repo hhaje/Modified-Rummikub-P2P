@@ -192,12 +192,11 @@ class SignalingServer {
                 this.joinSession(ws, clientId, sessionCode, playerName);
                 break;
                 
-            case 'direct_join':
-                console.log('direct_join 처리 시작');
-                console.log('hostClientId:', data.hostClientId);
-                console.log('playerName:', data.playerName);
-                console.log('sessionCode:', data.sessionCode);
-                this.directJoin(ws, clientId, data.hostClientId, data.playerName, data.sessionCode);
+            case 'join_request':
+                console.log('join_request 처리 시작');
+                console.log('sessionCode:', sessionCode);
+                console.log('playerName:', playerName);
+                this.handleJoinRequest(ws, clientId, sessionCode, playerName);
                 break;
                 
             case 'signal':
@@ -334,7 +333,15 @@ class SignalingServer {
             timestamp: Date.now()
         };
         console.log('호스트에게 전송할 guest_joined 메시지:', guestJoinedMessage);
-        hostClient.ws.send(JSON.stringify(guestJoinedMessage));
+        console.log('호스트 WebSocket 상태:', hostClient.ws.readyState);
+        console.log('호스트 WebSocket URL:', hostClient.ws.url);
+        
+        try {
+            hostClient.ws.send(JSON.stringify(guestJoinedMessage));
+            console.log('guest_joined 메시지 전송 성공');
+        } catch (error) {
+            console.error('guest_joined 메시지 전송 실패:', error);
+        }
         
         // 게스트에게 참여 성공 알림
         ws.send(JSON.stringify({
@@ -349,27 +356,27 @@ class SignalingServer {
         console.log(`게스트 참여: ${playerName} (세션: ${sessionCode})`);
     }
     
-    directJoin(ws, clientId, hostClientId, playerName, sessionCode) {
-        console.log('=== directJoin 호출 ===');
+    handleJoinRequest(ws, clientId, sessionCode, playerName) {
+        console.log('=== handleJoinRequest 호출 ===');
         console.log('clientId:', clientId);
-        console.log('hostClientId:', hostClientId);
-        console.log('playerName:', playerName);
         console.log('sessionCode:', sessionCode);
+        console.log('playerName:', playerName);
         
-        // 호스트 클라이언트가 존재하는지 확인
-        const hostClient = this.clients.get(hostClientId);
-        if (!hostClient) {
-            console.log('호스트 클라이언트를 찾을 수 없음:', hostClientId);
+        // 세션 찾기
+        const session = this.sessions.get(sessionCode);
+        if (!session) {
+            console.log('세션을 찾을 수 없음:', sessionCode);
             ws.send(JSON.stringify({
                 type: 'error',
-                message: 'Host not found'
+                message: 'Session not found'
             }));
             return;
         }
         
-        // 호스트가 연결되어 있는지 확인
-        if (hostClient.ws.readyState !== WebSocket.OPEN) {
-            console.log('호스트가 연결되어 있지 않음:', hostClientId);
+        // 호스트 클라이언트 찾기
+        const hostClient = this.clients.get(session.host);
+        if (!hostClient || hostClient.ws.readyState !== WebSocket.OPEN) {
+            console.log('호스트가 연결되어 있지 않음:', session.host);
             ws.send(JSON.stringify({
                 type: 'error',
                 message: 'Host is not available'
@@ -377,46 +384,30 @@ class SignalingServer {
             return;
         }
         
-        console.log('호스트 클라이언트 찾음:', hostClient);
-        
         // 게스트 클라이언트 정보 저장
         this.clients.set(clientId, {
             playerName: playerName,
             sessionCode: sessionCode,
             isHost: false,
-            hostClientId: hostClientId,
             isReady: false
         });
         
-        // 호스트에게 게스트 참여 알림
-        const guestJoinedMessage = {
-            type: 'guest_joined',
+        // 게스트를 세션에 추가
+        session.guests.push(clientId);
+        
+        // 호스트에게 참여 요청 전달
+        const joinRequestMessage = {
+            type: 'join_request',
             guestId: clientId,
             playerName: playerName,
             sessionCode: sessionCode,
             timestamp: Date.now()
         };
-        console.log('호스트에게 전송할 guest_joined 메시지:', guestJoinedMessage);
-        console.log('호스트 WebSocket 상태:', hostClient.ws.readyState);
-        console.log('호스트 WebSocket URL:', hostClient.ws.url);
         
-        try {
-            hostClient.ws.send(JSON.stringify(guestJoinedMessage));
-            console.log('guest_joined 메시지 전송 성공');
-        } catch (error) {
-            console.error('guest_joined 메시지 전송 실패:', error);
-        }
+        console.log('호스트에게 전송할 join_request 메시지:', joinRequestMessage);
+        hostClient.ws.send(JSON.stringify(joinRequestMessage));
         
-        // 게스트에게 참여 성공 알림
-        ws.send(JSON.stringify({
-            type: 'join_success',
-            sessionCode: sessionCode,
-            clientId: clientId,
-            hostId: hostClientId,
-            timestamp: Date.now()
-        }));
-        
-        console.log(`직접 참여 성공: ${playerName} -> 호스트 ${hostClientId}`);
+        console.log(`참여 요청 전달 완료: ${playerName} -> 호스트 ${session.host}`);
     }
     
     forwardJoinResponse(data, fromClientId) {

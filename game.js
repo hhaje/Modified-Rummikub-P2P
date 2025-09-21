@@ -941,13 +941,13 @@ class P2PManager {
                 console.log('세션 참여 성공:', sessionCode);
                 break;
                 
-            case 'guest_joined':
-                console.log('guest_joined 메시지 전체:', message);
-                console.log('message.playerName:', message.playerName);
-                console.log('message.sessionCode:', message.sessionCode);
-                console.log('message.guestId:', message.guestId);
+            case 'join_request':
+                console.log('=== 호스트 join_request 메시지 수신 ===');
+                console.log('전체 메시지:', message);
+                console.log('게스트 ID:', message.guestId);
+                console.log('플레이어 이름:', message.playerName);
+                console.log('세션 코드:', message.sessionCode);
                 
-                // guest_joined 메시지에서 sessionCode 추출
                 const joinRequestData = {
                     playerName: message.playerName,
                     sessionCode: message.sessionCode,
@@ -1130,28 +1130,6 @@ class P2PManager {
         return this.sessionCode;
     }
 
-    // 세션 코드로 호스트 클라이언트 ID 조회
-    async getHostClientId(sessionCode) {
-        try {
-            const response = await fetch(`https://modified-rummikub-p2p.onrender.com/host/${sessionCode}`);
-            const data = await response.json();
-            
-            if (data.success) {
-                console.log('=== 호스트 클라이언트 ID 조회 성공 ===');
-                console.log('호스트 ID:', data.hostId);
-                console.log('호스트 이름:', data.hostName);
-                console.log('세션 코드:', data.sessionCode);
-                return data.hostId;
-            } else {
-                console.error('호스트 클라이언트 ID 조회 실패:', data.error);
-                return null;
-            }
-        } catch (error) {
-            console.error('호스트 클라이언트 ID 조회 중 오류:', error);
-            return null;
-        }
-    }
-
     async joinSession(sessionCode, playerName) {
         console.log('=== 게스트 세션 참여 시작 ===');
         console.log('참여 코드:', sessionCode);
@@ -1161,34 +1139,20 @@ class P2PManager {
         this.playerName = playerName;
         this.sessionCode = sessionCode;
         
-        // 먼저 호스트 클라이언트 ID 조회
-        console.log('=== 호스트 클라이언트 ID 조회 중 ===');
-        const hostClientId = await this.getHostClientId(sessionCode);
-        
-        if (!hostClientId) {
-            console.error('호스트 클라이언트 ID를 찾을 수 없습니다.');
-            throw new Error('호스트를 찾을 수 없습니다. 세션 코드를 확인하세요.');
-        }
-        
-        // 호스트에게 직접 참여 요청
-        console.log('=== 호스트에게 직접 참여 요청 ===');
+        // 서버를 통해 참여 요청
+        console.log('=== 서버를 통해 참여 요청 ===');
         console.log('WebSocket 상태:', this.ws ? this.ws.readyState : 'null');
-        console.log('호스트 클라이언트 ID:', hostClientId);
-        console.log('플레이어 이름:', playerName);
         
         if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-            // WebSocket을 통한 직접 참여 요청
-            const directJoinMessage = {
-                type: 'direct_join',
-                hostClientId: hostClientId,
-                playerName: playerName,
-                sessionCode: sessionCode
+            const joinRequestMessage = {
+                type: 'join_request',
+                sessionCode: sessionCode,
+                playerName: playerName
             };
-            console.log('서버에 전송할 직접 참여 요청:', directJoinMessage);
-            this.ws.send(JSON.stringify(directJoinMessage));
+            console.log('서버에 전송할 참여 요청:', joinRequestMessage);
+            this.ws.send(JSON.stringify(joinRequestMessage));
         } else {
             console.log('WebSocket 연결 없음, BroadcastChannel 폴백');
-            // BroadcastChannel 폴백
             this.broadcastToLocal('join_request', {
                 sessionCode,
                 playerName,
@@ -1266,15 +1230,7 @@ class P2PManager {
                 from: this.clientId
             };
             console.log('서버를 통해 게스트에게 응답 전송:', joinResponseMessage);
-            console.log('WebSocket 전송 전 상태:', this.ws.readyState);
-            console.log('전송할 JSON 문자열:', JSON.stringify(joinResponseMessage));
-            
-            try {
-                this.ws.send(JSON.stringify(joinResponseMessage));
-                console.log('join_response 메시지 전송 성공');
-            } catch (error) {
-                console.error('join_response 메시지 전송 실패:', error);
-            }
+            this.ws.send(JSON.stringify(joinResponseMessage));
         } else {
             // 폴백: BroadcastChannel 사용
             this.broadcastToLocal('join_response', {
