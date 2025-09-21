@@ -211,7 +211,7 @@ class SignalingServer {
                 break;
                 
             case 'broadcast':
-                this.broadcastToSession(sessionCode, data.data, clientId);
+                this.broadcastToSession(sessionCode, message, clientId);
                 break;
                 
             case 'join_response':
@@ -369,23 +369,16 @@ class SignalingServer {
         console.log('sessionCode:', sessionCode);
         console.log('playerName:', playerName);
         
-        // 현재 클라이언트 목록 출력
-        console.log('현재 클라이언트 목록:', Array.from(this.clients.keys()));
-        console.log('클라이언트 상세 정보:', Array.from(this.clients.entries()));
-        
         // 세션 찾기
         const session = this.sessions.get(sessionCode);
         if (!session) {
             console.log('세션을 찾을 수 없음:', sessionCode);
-            console.log('현재 세션 목록:', Array.from(this.sessions.keys()));
             ws.send(JSON.stringify({
                 type: 'error',
                 message: 'Session not found'
             }));
             return;
         }
-        
-        console.log('세션 찾음:', session);
         
         // 호스트 클라이언트 찾기
         const hostClient = this.clients.get(session.host);
@@ -400,18 +393,14 @@ class SignalingServer {
         
         // 게스트 클라이언트 정보 업데이트 (기존 정보 유지)
         const existingClient = this.clients.get(clientId);
-        console.log('기존 클라이언트 정보:', existingClient);
-        
         if (existingClient) {
             existingClient.playerName = playerName;
             existingClient.sessionCode = sessionCode;
             existingClient.isHost = false;
             existingClient.isReady = false;
-            console.log('클라이언트 정보 업데이트 완료:', existingClient);
         } else {
             // 클라이언트가 존재하지 않는 경우 (이론적으로 발생하지 않아야 함)
             console.error('클라이언트가 존재하지 않음:', clientId);
-            console.error('현재 클라이언트 목록:', Array.from(this.clients.keys()));
             ws.send(JSON.stringify({
                 type: 'error',
                 message: 'Client not found'
@@ -442,26 +431,14 @@ class SignalingServer {
         console.log('fromClientId:', fromClientId);
         console.log('data:', data);
         
-        const { to: targetPlayerName, data: responseData } = data;
+        const { to: targetClientId, data: responseData } = data;
         
-        // 플레이어 이름으로 클라이언트 찾기
-        let targetClient = null;
-        let targetClientId = null;
-        
-        for (const [clientId, client] of this.clients.entries()) {
-            if (client.playerName === targetPlayerName) {
-                targetClient = client;
-                targetClientId = clientId;
-                break;
-            }
-        }
-        
+        // 대상 클라이언트 찾기
+        const targetClient = this.clients.get(targetClientId);
         if (!targetClient) {
-            console.log('대상 클라이언트를 찾을 수 없음:', targetPlayerName);
+            console.log('대상 클라이언트를 찾을 수 없음:', targetClientId);
             return;
         }
-        
-        console.log('대상 클라이언트 찾음:', targetClientId, targetPlayerName);
         
         // 대상 클라이언트가 연결되어 있는지 확인
         if (targetClient.ws.readyState !== WebSocket.OPEN) {
@@ -508,64 +485,38 @@ class SignalingServer {
     }
     
     broadcastToSession(sessionCode, message, senderClientId) {
-        console.log('=== broadcastToSession 호출 ===');
-        console.log('sessionCode:', sessionCode);
-        console.log('message:', message);
-        console.log('senderClientId:', senderClientId);
-        
         const session = this.sessions.get(sessionCode);
         if (!session) {
             console.log('세션을 찾을 수 없음:', sessionCode);
             return;
         }
         
-        console.log('세션 정보:', session);
-        
         // 호스트에게 전송 (발신자 제외)
         const hostClient = this.clients.get(session.host);
-        console.log('호스트 클라이언트:', hostClient);
-        console.log('호스트 ID:', session.host);
-        console.log('발신자 ID:', senderClientId);
-        
         if (hostClient && hostClient.ws !== this.clients.get(senderClientId)?.ws && 
             hostClient.ws.readyState === WebSocket.OPEN) {
-            const broadcastMessage = {
+            hostClient.ws.send(JSON.stringify({
                 type: 'broadcast',
                 data: message,
                 from: senderClientId,
                 timestamp: Date.now()
-            };
-            console.log('호스트에게 전송할 브로드캐스트 메시지:', broadcastMessage);
-            hostClient.ws.send(JSON.stringify(broadcastMessage));
-            console.log('호스트에게 브로드캐스트 메시지 전송 성공');
-        } else {
-            console.log('호스트에게 메시지 전송 실패 - 호스트 없음 또는 연결 끊김');
+            }));
         }
         
         // 모든 게스트에게 전송 (발신자 제외)
-        console.log('게스트 목록:', session.guests);
         session.guests.forEach(guestId => {
             const guestClient = this.clients.get(guestId);
-            console.log(`게스트 ${guestId} 클라이언트:`, guestClient);
-            
             if (guestClient && guestClient.ws && 
                 guestClient.ws !== this.clients.get(senderClientId)?.ws && 
                 guestClient.ws.readyState === WebSocket.OPEN) {
-                const guestBroadcastMessage = {
+                guestClient.ws.send(JSON.stringify({
                     type: 'broadcast',
                     data: message,
                     from: senderClientId,
                     timestamp: Date.now()
-                };
-                console.log(`게스트 ${guestId}에게 전송할 브로드캐스트 메시지:`, guestBroadcastMessage);
-                guestClient.ws.send(JSON.stringify(guestBroadcastMessage));
-                console.log(`게스트 ${guestId}에게 브로드캐스트 메시지 전송 성공`);
+                }));
             } else if (guestClient && !guestClient.ws) {
                 console.log('게스트 클라이언트에 WebSocket이 없음:', guestId);
-            } else if (!guestClient) {
-                console.log('게스트 클라이언트를 찾을 수 없음:', guestId);
-            } else {
-                console.log(`게스트 ${guestId} WebSocket 상태:`, guestClient.ws.readyState);
             }
         });
         

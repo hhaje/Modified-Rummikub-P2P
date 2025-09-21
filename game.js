@@ -1648,15 +1648,11 @@ class P2PManager {
         };
         
         // BroadcastChannel을 통한 로컬 네트워크 브로드캐스트
-        if (this.broadcastChannel) {
-            this.broadcastChannel.postMessage({
-                type: 'game_message',
-                data: message,
-                from: this.playerName
-            });
-        } else {
-            console.log('BroadcastChannel이 초기화되지 않음, WebSocket을 통해서만 전송');
-        }
+        this.broadcastChannel.postMessage({
+            type: 'game_message',
+            data: message,
+            from: this.playerName
+        });
         
         // 모든 연결된 플레이어에게 전송 (P2P 연결이 설정된 경우)
         this.dataChannels.forEach((channel, playerName) => {
@@ -1741,22 +1737,12 @@ class P2PManager {
     handleGameMessage(message, from) {
         console.log('게임 메시지 수신:', message);
         
-        // 메시지 데이터가 없는 경우 처리
-        if (!message || !message.type) {
-            console.log('유효하지 않은 게임 메시지:', message);
-            return;
-        }
-        
         switch (message.type) {
             case 'player_ready':
-                if (message.data) {
-                    console.log('플레이어 준비 상태 업데이트:', message.data.playerId, message.data.isReady);
-                    this.updatePlayerReady(message.data.playerId, message.data.isReady);
-                    console.log('현재 플레이어 목록:', this.getPlayerList());
-                    this.gameController.updateWaitingRoom();
-                } else {
-                    console.log('player_ready 메시지에 데이터가 없음:', message);
-                }
+                console.log('플레이어 준비 상태 업데이트:', message.data.playerId, message.data.isReady);
+                this.updatePlayerReady(message.data.playerId, message.data.isReady);
+                console.log('현재 플레이어 목록:', this.getPlayerList());
+                this.gameController.updateWaitingRoom();
                 break;
                 
             case 'game_start':
