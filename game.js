@@ -966,7 +966,9 @@ class P2PManager {
                 break;
                 
             case 'join_response':
-                console.log('join_response 메시지 수신:', message);
+                console.log('=== 게스트 join_response 메시지 수신 ===');
+                console.log('전체 메시지:', message);
+                console.log('메시지 데이터:', message.data);
                 await this.handleJoinResponse(message.data);
                 break;
                 
@@ -1264,7 +1266,15 @@ class P2PManager {
                 from: this.clientId
             };
             console.log('서버를 통해 게스트에게 응답 전송:', joinResponseMessage);
-            this.ws.send(JSON.stringify(joinResponseMessage));
+            console.log('WebSocket 전송 전 상태:', this.ws.readyState);
+            console.log('전송할 JSON 문자열:', JSON.stringify(joinResponseMessage));
+            
+            try {
+                this.ws.send(JSON.stringify(joinResponseMessage));
+                console.log('join_response 메시지 전송 성공');
+            } catch (error) {
+                console.error('join_response 메시지 전송 실패:', error);
+            }
         } else {
             // 폴백: BroadcastChannel 사용
             this.broadcastToLocal('join_response', {
