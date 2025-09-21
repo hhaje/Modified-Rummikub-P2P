@@ -1082,15 +1082,24 @@ class P2PManager {
         });
         
         // 세션 브로드캐스트
+        console.log('=== 세션 생성 요청 ===');
+        console.log('WebSocket 상태:', this.ws ? this.ws.readyState : 'null');
+        console.log('세션 코드:', this.sessionCode);
+        console.log('플레이어 이름:', playerName);
+        console.log('게임 설정:', gameSettings);
+        
         if (this.ws && this.ws.readyState === WebSocket.OPEN) {
             // WebSocket을 통한 세션 생성
-            this.ws.send(JSON.stringify({
+            const createSessionMessage = {
                 type: 'create_session',
                 sessionCode: this.sessionCode,
                 playerName: playerName,
                 gameSettings: gameSettings
-            }));
+            };
+            console.log('서버에 전송할 메시지:', createSessionMessage);
+            this.ws.send(JSON.stringify(createSessionMessage));
         } else {
+            console.log('WebSocket 연결 없음, BroadcastChannel 폴백');
             // BroadcastChannel 폴백
             this.broadcastToLocal('session_announce', {
                 sessionCode: this.sessionCode,

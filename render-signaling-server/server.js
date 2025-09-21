@@ -146,6 +146,7 @@ class SignalingServer {
         const { type, sessionCode, playerName, to, message, gameSettings } = data;
         
         console.log(`메시지 수신 (${clientId}):`, type);
+        console.log('메시지 데이터:', data);
         
         switch (type) {
             case 'create_session':
@@ -153,6 +154,9 @@ class SignalingServer {
                 break;
                 
             case 'join_session':
+                console.log('join_session 처리 시작');
+                console.log('sessionCode:', sessionCode);
+                console.log('playerName:', playerName);
                 this.joinSession(ws, clientId, sessionCode, playerName);
                 break;
                 
@@ -182,8 +186,15 @@ class SignalingServer {
     }
     
     createSession(ws, clientId, sessionCode, playerName, gameSettings) {
+        console.log('=== createSession 호출 ===');
+        console.log('clientId:', clientId);
+        console.log('sessionCode:', sessionCode);
+        console.log('playerName:', playerName);
+        console.log('gameSettings:', gameSettings);
+        
         // 기존 세션이 있는지 확인
         if (this.sessions.has(sessionCode)) {
+            console.log('세션이 이미 존재함:', sessionCode);
             ws.send(JSON.stringify({
                 type: 'error',
                 message: 'Session already exists'
@@ -192,19 +203,29 @@ class SignalingServer {
         }
         
         // 세션 생성
-        this.sessions.set(sessionCode, {
+        const sessionData = {
             host: clientId,
             guests: [],
             createdAt: Date.now(),
             gameSettings: gameSettings || {}
-        });
+        };
+        this.sessions.set(sessionCode, sessionData);
+        
+        console.log('세션 생성 완료:', sessionCode);
+        console.log('세션 데이터:', sessionData);
+        console.log('현재 세션 목록:', Array.from(this.sessions.keys()));
         
         // 클라이언트 정보 업데이트
         const client = this.clients.get(clientId);
-        client.sessionCode = sessionCode;
-        client.isHost = true;
-        client.playerName = playerName;
-        client.isReady = true;
+        if (client) {
+            client.sessionCode = sessionCode;
+            client.isHost = true;
+            client.playerName = playerName;
+            client.isReady = true;
+            console.log('클라이언트 정보 업데이트 완료:', client);
+        } else {
+            console.error('클라이언트를 찾을 수 없음:', clientId);
+        }
         
         ws.send(JSON.stringify({
             type: 'session_created',
@@ -217,14 +238,27 @@ class SignalingServer {
     }
     
     joinSession(ws, clientId, sessionCode, playerName) {
+        console.log('=== joinSession 호출 ===');
+        console.log('clientId:', clientId);
+        console.log('sessionCode:', sessionCode);
+        console.log('playerName:', playerName);
+        
+        // 현재 세션 목록 출력
+        console.log('현재 세션 목록:', Array.from(this.sessions.keys()));
+        console.log('세션 상세 정보:', Array.from(this.sessions.entries()));
+        
         const session = this.sessions.get(sessionCode);
         if (!session) {
+            console.log('세션을 찾을 수 없음:', sessionCode);
+            console.log('사용 가능한 세션들:', Array.from(this.sessions.keys()));
             ws.send(JSON.stringify({
                 type: 'error',
                 message: 'Session not found'
             }));
             return;
         }
+        
+        console.log('세션 찾음:', sessionCode);
         
         const hostClient = this.clients.get(session.host);
         if (!hostClient || hostClient.ws.readyState !== WebSocket.OPEN) {
@@ -246,12 +280,15 @@ class SignalingServer {
         session.guests.push(clientId);
         
         // 호스트에게 게스트 참여 알림
-        hostClient.ws.send(JSON.stringify({
+        const guestJoinedMessage = {
             type: 'guest_joined',
             guestId: clientId,
             playerName,
+            sessionCode: sessionCode,
             timestamp: Date.now()
-        }));
+        };
+        console.log('호스트에게 전송할 guest_joined 메시지:', guestJoinedMessage);
+        hostClient.ws.send(JSON.stringify(guestJoinedMessage));
         
         // 게스트에게 참여 성공 알림
         ws.send(JSON.stringify({
