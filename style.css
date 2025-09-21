@@ -15,7 +15,7 @@ body {
 .game-container {
     width: 100vw;
     height: 100vh;
-    padding: 15px;
+    padding: 10px;
     margin: 0;
     display: grid;
     grid-template-columns: 1fr auto;
@@ -26,7 +26,7 @@ body {
     background: linear-gradient(135deg, #1a365d 0%, #2d3748 50%, #4a5568 100%);
     overflow: hidden;
     box-sizing: border-box;
-    gap: 15px;
+    gap: 10px;
 }
 
 /* 헤더 */
@@ -34,48 +34,48 @@ body {
     grid-area: header;
     background: rgba(255, 255, 255, 0.95);
     backdrop-filter: blur(10px);
-    border-radius: 12px;
-    padding: 12px 20px;
+    border-radius: 8px;
+    padding: 8px 15px;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
     display: flex;
     justify-content: space-between;
     align-items: center;
-    min-height: 60px;
+    min-height: 45px;
 }
 
 .game-header h1 {
-    font-size: 2rem;
+    font-size: 1.5rem;
     color: #4a5568;
     margin: 0;
 }
 
 .game-info {
     display: flex;
-    gap: 30px;
-    font-size: 1.1rem;
+    gap: 20px;
+    font-size: 0.9rem;
 }
 
 .current-answer {
     background: #e53e3e;
     color: white;
-    padding: 8px 16px;
-    border-radius: 8px;
+    padding: 6px 12px;
+    border-radius: 6px;
     font-weight: bold;
 }
 
 .target-cards {
     background: #805ad5;
     color: white;
-    padding: 8px 16px;
-    border-radius: 8px;
+    padding: 6px 12px;
+    border-radius: 6px;
     font-weight: bold;
 }
 
 .current-player {
     background: #38a169;
     color: white;
-    padding: 8px 16px;
-    border-radius: 8px;
+    padding: 6px 12px;
+    border-radius: 6px;
     font-weight: bold;
 }
 
@@ -98,21 +98,21 @@ body {
 .game-main {
     grid-area: main;
     display: grid;
-    grid-template-rows: 2fr auto 200px;
-    gap: 15px;
+    grid-template-rows: 3fr auto 150px;
+    gap: 10px;
     min-height: 0;
 }
 
 /* 필드 영역 - 배경과 구분되지 않는 넓은 공간 */
 .field-area {
     background: transparent;
-    padding: 20px;
+    padding: 15px;
     overflow-y: auto;
 }
 
 .field-area h3 {
-    margin: 0 0 15px 0;
-    font-size: 1.3rem;
+    margin: 0 0 10px 0;
+    font-size: 1.1rem;
     color: rgba(255, 255, 255, 0.9);
     font-weight: bold;
     text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
@@ -123,45 +123,45 @@ body {
     background: rgba(26, 32, 44, 0.95);
     backdrop-filter: blur(10px);
     color: white;
-    padding: 20px;
-    border-radius: 15px;
+    padding: 15px;
+    border-radius: 12px;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
     border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .expression-area h3 {
-    margin: 0 0 15px 0;
-    font-size: 1.3rem;
+    margin: 0 0 10px 0;
+    font-size: 1.1rem;
     color: white;
     font-weight: bold;
     border-bottom: 2px solid rgba(255, 255, 255, 0.2);
-    padding-bottom: 10px;
+    padding-bottom: 8px;
 }
 
 /* 하단 카드 영역 */
 .cards-area {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 15px;
+    gap: 10px;
     height: 100%;
-    min-height: 200px;
+    min-height: 150px;
 }
 
 .numbers-section, .operators-section {
     background: rgba(139, 69, 19, 0.3);
     backdrop-filter: blur(10px);
-    border-radius: 15px;
-    padding: 15px;
+    border-radius: 12px;
+    padding: 12px;
     border: 2px solid rgba(160, 82, 45, 0.5);
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
     display: flex;
     flex-direction: column;
-    min-height: 180px;
+    min-height: 130px;
 }
 
 .numbers-section h4, .operators-section h4 {
-    margin: 0 0 10px 0;
-    font-size: 1.1rem;
+    margin: 0 0 8px 0;
+    font-size: 1rem;
     color: #4a5568;
     font-weight: bold;
     text-align: center;
@@ -172,9 +172,9 @@ body {
     grid-area: actions;
     display: flex;
     flex-direction: column;
-    gap: 20px;
-    padding: 15px;
-    width: 200px;
+    gap: 15px;
+    padding: 10px;
+    width: 180px;
 }
 
 /* 액션 버튼들 */
@@ -326,11 +326,13 @@ section h3 {
     flex: 1;
     background: transparent;
     padding: 15px;
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
-    overflow-y: auto;
+    position: relative;
+    overflow: auto;
     min-height: 200px;
+    /* 자유 배치를 위한 설정 */
+    position: relative;
+    width: 100%;
+    height: 100%;
 }
 
 .equation {
@@ -346,27 +348,38 @@ section h3 {
     justify-content: space-between;
     transition: all 0.3s ease;
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    /* 자유 배치를 위한 설정 */
+    position: absolute;
+    cursor: move;
+    /* 동적 너비를 위한 설정 - JavaScript에서 제어 */
+    width: auto;
+    min-width: 200px;
+    max-width: 500px;
+    /* 드래그 가능한 박스로 만들기 */
+    user-select: none;
+    /* 드래그 성능 최적화 */
+    will-change: transform;
+    transform: translateZ(0); /* 하드웨어 가속 활성화 */
 }
 
 .equation:hover {
     border-color: #4299e1;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    cursor: pointer;
+    cursor: move;
 }
 
-.equation:hover::before {
-    content: "클릭하여 수식으로 가져오기";
-    position: absolute;
-    top: -25px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: #2d3748;
-    color: white;
-    padding: 4px 8px;
-    border-radius: 4px;
-    font-size: 0.8rem;
-    white-space: nowrap;
-    z-index: 10;
+.equation.dragging {
+    opacity: 0.8;
+    transform: rotate(2deg) translateZ(0);
+    z-index: 1000;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+    /* 드래그 중 성능 최적화 */
+    will-change: transform;
+    transition: none; /* 드래그 중에는 transition 비활성화 */
+}
+
+.equation.dragging:hover {
+    cursor: grabbing;
 }
 
 .equation.invalid {
@@ -449,24 +462,30 @@ section h3 {
     flex: 1;
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
+    /* 등식 길이에 따라 자동으로 늘어나도록 */
+    width: fit-content;
+    min-width: 100%;
 }
 
 .equation-cards {
     display: flex;
-    gap: 4px;
+    gap: 3px;
     align-items: center;
+    /* 카드들이 많아져도 줄바꿈하지 않도록 */
+    flex-wrap: nowrap;
+    width: fit-content;
 }
 
 .equation-card {
-    width: 40px;
-    height: 50px;
-    border-radius: 6px;
+    width: 32px;
+    height: 42px;
+    border-radius: 5px;
     display: flex;
     align-items: center;
     justify-content: center;
     font-weight: bold;
-    font-size: 0.9rem;
+    font-size: 0.8rem;
     cursor: pointer;
     transition: all 0.2s ease;
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
@@ -620,14 +639,14 @@ section h3 {
 
 /* 카드 스타일 */
 .card {
-    width: 45px;
-    height: 60px;
-    border-radius: 8px;
+    width: 38px;
+    height: 50px;
+    border-radius: 6px;
     display: flex;
     align-items: center;
     justify-content: center;
     font-weight: bold;
-    font-size: 1.1rem;
+    font-size: 0.9rem;
     cursor: grab;
     transition: all 0.2s ease;
     box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
@@ -867,14 +886,15 @@ section h3 {
 /* 모달 */
 .modal {
     display: none;
-    position: fixed;
-    z-index: 1000;
-    left: 0;
-    top: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.5);
+    position: fixed !important;
+    z-index: 99999 !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    background: rgba(0, 0, 0, 0.5) !important;
     backdrop-filter: blur(5px);
+    overflow: auto;
 }
 
 .modal-content {
@@ -1102,6 +1122,8 @@ section h3 {
     display: flex;
     align-items: center;
     justify-content: center;
+    position: relative;
+    z-index: 1;
     background: linear-gradient(135deg, #1a365d 0%, #2d3748 50%, #4a5568 100%);
 }
 
