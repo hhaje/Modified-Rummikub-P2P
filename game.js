@@ -1875,8 +1875,23 @@ class P2PManager {
     }
 
     updatePlayerReady(playerId, isReady) {
+        console.log(`플레이어 준비 상태 업데이트 시도: ${playerId}, ${isReady}`);
+        console.log('현재 플레이어 목록:', Array.from(this.players.keys()));
+        
         if (this.players.has(playerId)) {
             this.players.get(playerId).isReady = isReady;
+            console.log(`플레이어 ${playerId} 준비 상태 업데이트 완료: ${isReady}`);
+        } else {
+            console.log(`플레이어 ${playerId}를 찾을 수 없음, 새로 추가`);
+            // 플레이어가 없으면 새로 추가
+            this.players.set(playerId, {
+                id: playerId,
+                name: playerId,
+                isHost: playerId === this.playerName,
+                isReady: isReady,
+                connection: null
+            });
+            console.log(`플레이어 ${playerId} 추가 완료`);
         }
     }
 
