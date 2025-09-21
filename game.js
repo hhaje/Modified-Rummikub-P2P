@@ -1752,10 +1752,14 @@ class P2PManager {
     }
 
     handleGameMessage(message, from) {
-        console.log('게임 메시지 수신:', message);
+        console.log('=== 게임 메시지 수신 ===');
+        console.log('메시지:', message);
+        console.log('발신자:', from);
+        console.log('메시지 타입:', message.type);
         
         switch (message.type) {
             case 'player_ready':
+                console.log('=== player_ready 메시지 처리 ===');
                 console.log('플레이어 준비 상태 업데이트:', message.data.playerId, message.data.isReady);
                 this.updatePlayerReady(message.data.playerId, message.data.isReady);
                 console.log('현재 플레이어 목록:', this.getPlayerList());
