@@ -469,10 +469,23 @@ class GameState {
     }
 
     removeEquation(equationId) {
+        console.log('=== removeEquation 호출 ===');
+        console.log('제거할 등식 ID:', equationId);
+        console.log('현재 필드 등식 수:', this.fieldEquations.length);
+        console.log('현재 필드 등식들:', this.fieldEquations.map(eq => ({id: eq.id, cards: eq.cards.length})));
+        
         const index = this.fieldEquations.findIndex(eq => eq.id === equationId);
+        console.log('찾은 인덱스:', index);
+        
         if (index !== -1) {
-            return this.fieldEquations.splice(index, 1)[0];
+            const removedEquation = this.fieldEquations.splice(index, 1)[0];
+            console.log('등식 제거 완료:', removedEquation.id);
+            console.log('제거 후 필드 등식 수:', this.fieldEquations.length);
+            console.log('제거 후 필드 등식들:', this.fieldEquations.map(eq => ({id: eq.id, cards: eq.cards.length})));
+            return removedEquation;
         }
+        
+        console.log('등식을 찾을 수 없음');
         return null;
     }
 
@@ -570,8 +583,11 @@ class ExpressionArea {
             // ExpressionCalculator를 사용하여 계산 (usedFieldCards 추적을 위해)
             const calculator = new ExpressionCalculator();
             this.cards.forEach(card => {
-                // 카드가 필드에서 온 것인지 확인
+                // 카드가 필드에서 온 것인지 확인 (손패 카드는 제외)
                 const isFromField = this.gameController && this.gameController.gameState.getAvailableFieldCards().some(fieldCard => fieldCard.id === card.id);
+                console.log(`카드 ${card.id} (${card.value}) 필드에서 온 카드인가?`, isFromField);
+                console.log('현재 플레이어 손패 카드들:', this.gameController.gameState.getCurrentPlayer().numberCards.map(c => c.id), this.gameController.gameState.getCurrentPlayer().operatorCards.map(c => c.id));
+                console.log('필드 카드들:', this.gameController.gameState.getAvailableFieldCards().map(c => c.id));
                 calculator.addCard(card, isFromField);
             });
 
@@ -2417,19 +2433,25 @@ class GameController {
         }) : [];
         this.gameState.possibleAnswers = data.possibleAnswers;
         this.gameState.currentPlayer = data.currentPlayer;
-        this.gameState.fieldEquations = data.fieldEquations ? data.fieldEquations.map(equationData => ({
-            id: equationData.id,
-            cards: equationData.cards.map(cardData => {
-                const card = new Card(cardData.type, cardData.value);
-                card.id = cardData.id;
-                if (cardData.temporaryOperator) {
-                    card.setTemporaryOperator(cardData.temporaryOperator);
-                }
-                return card;
-            }),
-            result: equationData.result,
-            isValid: equationData.isValid
-        })) : [];
+        // 필드 등식 업데이트 (기존 등식 유지)
+        if (data.fieldEquations && data.fieldEquations.length > 0) {
+            this.gameState.fieldEquations = data.fieldEquations.map(equationData => ({
+                id: equationData.id,
+                cards: equationData.cards.map(cardData => {
+                    const card = new Card(cardData.type, cardData.value);
+                    card.id = cardData.id;
+                    if (cardData.temporaryOperator) {
+                        card.setTemporaryOperator(cardData.temporaryOperator);
+                    }
+                    return card;
+                }),
+                result: equationData.result,
+                isValid: equationData.isValid
+            }));
+            console.log('공통 상태에서 필드 등식 업데이트:', this.gameState.fieldEquations.length, '개');
+        } else {
+            console.log('공통 상태에서 필드 등식 데이터가 없음, 기존 등식 유지');
+        }
         this.gameState.isGameActive = data.isGameActive;
         
         // 남은 패 데이터 설정 (게스트만 업데이트)
@@ -2643,7 +2665,9 @@ class GameController {
     // 필드 등식 실시간 동기화
     broadcastFieldEquations() {
         if (this.isMultiplayer) {
-            console.log('필드 등식 동기화 전송:', this.gameState.fieldEquations);
+            console.log('=== 필드 등식 동기화 전송 시작 ===');
+            console.log('현재 필드 등식 수:', this.gameState.fieldEquations.length);
+            console.log('필드 등식들:', this.gameState.fieldEquations.map(eq => ({id: eq.id, cards: eq.cards.length, display: eq.getDisplayString()})));
             
             // Equation 객체를 직렬화 가능한 데이터로 변환
             const serializedEquations = this.gameState.fieldEquations.map(equation => ({
@@ -2658,39 +2682,57 @@ class GameController {
                 isValid: equation.isValid() // 함수 호출로 결과값 전송
             }));
             
+            console.log('직렬화된 등식 데이터:', serializedEquations);
+            
             this.p2pManager.broadcastMessage('field_equations_update', {
                 fieldEquations: serializedEquations
             });
+            
+            console.log('=== 필드 등식 동기화 전송 완료 ===');
         }
     }
 
     // 필드 등식 업데이트 수신 처리
     handleFieldEquationsUpdate(data) {
-        console.log('필드 등식 업데이트 수신:', data);
+        console.log('=== 필드 등식 업데이트 수신 시작 ===');
+        console.log('수신된 데이터:', data);
+        console.log('수신 전 필드 등식 수:', this.gameState.fieldEquations.length);
         
-        this.gameState.fieldEquations = data.fieldEquations.map(equationData => {
-            // 카드들을 Card 객체로 변환
-            const cards = equationData.cards.map(cardData => {
-                const card = new Card(cardData.type, cardData.value);
-                card.id = cardData.id;
-                if (cardData.temporaryOperator) {
-                    card.setTemporaryOperator(cardData.temporaryOperator);
-                }
-                return card;
+        // 필드 등식 데이터가 있는 경우에만 업데이트
+        if (data.fieldEquations && data.fieldEquations.length > 0) {
+            console.log('필드 등식 데이터 있음, 업데이트 진행');
+            console.log('수신된 등식 수:', data.fieldEquations.length);
+            
+            this.gameState.fieldEquations = data.fieldEquations.map(equationData => {
+                // 카드들을 Card 객체로 변환
+                const cards = equationData.cards.map(cardData => {
+                    const card = new Card(cardData.type, cardData.value);
+                    card.id = cardData.id;
+                    if (cardData.temporaryOperator) {
+                        card.setTemporaryOperator(cardData.temporaryOperator);
+                    }
+                    return card;
+                });
+                
+                // 등호를 기준으로 왼쪽과 오른쪽 분리
+                const equalsIndex = cards.findIndex(card => card.type === 'equals');
+                const leftSide = equalsIndex !== -1 ? cards.slice(0, equalsIndex) : [];
+                const rightSide = equalsIndex !== -1 ? cards.slice(equalsIndex + 1) : [];
+                
+                // 새로운 Equation 객체 생성
+                const equation = new Equation(leftSide, rightSide);
+                equation.id = equationData.id; // ID 유지
+                equation.result = equationData.result; // 결과 유지
+                
+                return equation;
             });
             
-            // 등호를 기준으로 왼쪽과 오른쪽 분리
-            const equalsIndex = cards.findIndex(card => card.type === 'equals');
-            const leftSide = equalsIndex !== -1 ? cards.slice(0, equalsIndex) : [];
-            const rightSide = equalsIndex !== -1 ? cards.slice(equalsIndex + 1) : [];
-            
-            // 새로운 Equation 객체 생성
-            const equation = new Equation(leftSide, rightSide);
-            equation.id = equationData.id; // ID 유지
-            equation.result = equationData.result; // 결과 유지
-            
-            return equation;
-        });
+            console.log('필드 등식 업데이트 완료:', this.gameState.fieldEquations.length, '개');
+            console.log('업데이트된 등식들:', this.gameState.fieldEquations.map(eq => ({id: eq.id, cards: eq.cards.length, display: eq.getDisplayString()})));
+        } else {
+            console.log('필드 등식 데이터가 없음, 기존 등식 유지');
+            console.log('현재 필드 등식 수:', this.gameState.fieldEquations.length);
+        }
         
         // UI 업데이트
         this.updateFieldEquations();
@@ -2705,7 +2747,7 @@ class GameController {
             });
         }, 100);
         
-        console.log('필드 등식 동기화 완료');
+        console.log('=== 필드 등식 동기화 완료 ===');
     }
 
     generateCardsForGuest() {
@@ -3036,45 +3078,59 @@ class GameController {
     updateFieldEquations() {
         const fieldEquations = document.getElementById('field-equations');
         
+        console.log('=== updateFieldEquations 시작 ===');
+        console.log('현재 필드 등식 수:', this.gameState.fieldEquations.length);
+        console.log('필드 등식들:', this.gameState.fieldEquations.map(eq => ({id: eq.id, cards: eq.cards.length})));
+        
+        // DOM 완전 초기화
+        console.log('DOM 초기화 시작');
+        fieldEquations.innerHTML = '';
+        
         if (this.gameState.fieldEquations.length === 0) {
+            console.log('등식이 없음, 빈 메시지 표시');
             fieldEquations.innerHTML = '<p class="no-equations">아직 등식이 없습니다.</p>';
+            console.log('=== updateFieldEquations 완료 (등식 없음) ===');
             return;
         }
 
-        fieldEquations.innerHTML = '';
-        this.gameState.fieldEquations.forEach(equation => {
+        console.log('등식 렌더링 시작');
+        this.gameState.fieldEquations.forEach((equation, index) => {
+            console.log(`등식 ${index} 렌더링:`, equation.id, equation.cards.length, '장');
             const equationElement = this.createEquationElement(equation);
             fieldEquations.appendChild(equationElement);
             
             // 등식박스 크기 자동 조절
             this.adjustEquationBoxSize(equationElement, equation);
         });
+        
+        console.log('렌더링된 등식 수:', fieldEquations.children.length);
+        console.log('=== updateFieldEquations 완료 ===');
     }
     
     // 등식박스 크기 자동 조절
     adjustEquationBoxSize(equationElement, equation) {
         // 등식의 카드 수에 따라 박스 크기 조절
         const cardCount = equation.cards.length;
-        const baseWidth = 120; // 기본 너비 (더 작게)
-        const padding = 30; // 패딩 (여백 확보)
+        const baseWidth = 100; // 기본 너비 (더 작게)
+        const padding = 40; // 패딩 (여백 확보)
         
         // 카드 타입별로 다른 너비 적용 (새로운 카드 크기에 맞춤)
         let totalCardWidth = 0;
         equation.cards.forEach(card => {
             if (card.type === 'number') {
-                totalCardWidth += 25; // 숫자 카드는 작게
+                totalCardWidth += 28; // 숫자 카드 너비 증가
             } else if (card.type === 'operator') {
-                totalCardWidth += 22; // 연산자 카드는 더 작게
+                totalCardWidth += 25; // 연산자 카드 너비 증가
             } else if (card.type === 'joker') {
-                totalCardWidth += 28; // 조커 카드는 조금 크게
+                totalCardWidth += 30; // 조커 카드 너비 증가
             } else if (card.type === 'equals') {
-                totalCardWidth += 18; // 등호는 가장 작게
+                totalCardWidth += 20; // 등호 너비 증가
             }
         });
         
         const calculatedWidth = baseWidth + totalCardWidth + padding;
-        const maxWidth = 500; // 최대 너비 조정
-        const minWidth = 150; // 최소 너비 조정
+        const maxWidth = 800; // 최대 너비 증가
+        const minWidth = 180; // 최소 너비 증가
         
         const finalWidth = Math.max(minWidth, Math.min(calculatedWidth, maxWidth));
         
@@ -4305,9 +4361,23 @@ class GameController {
         const newEquation = new Equation(leftSideCards, answerCards);
         
         // 필드에서 사용된 카드들의 등식 제거 (필요시)
+        console.log('=== 깨진 등식 처리 확인 ===');
+        console.log('사용된 필드 카드 수:', this.calculator.usedFieldCards.length);
+        console.log('사용된 필드 카드들:', this.calculator.usedFieldCards.map(card => ({id: card.id, value: card.value, type: card.type})));
+        
         if (this.calculator.usedFieldCards.length > 0) {
             const affectedEquations = this.findEquationsWithCards(this.calculator.usedFieldCards);
-            this.handleBrokenEquations(affectedEquations, currentPlayer);
+            console.log('영향받는 등식 수:', affectedEquations.length);
+            console.log('영향받는 등식들:', affectedEquations.map(eq => ({id: eq.id, display: eq.getDisplayString()})));
+            
+            if (affectedEquations.length > 0) {
+                console.log('깨진 등식 처리 시작');
+                this.handleBrokenEquations(affectedEquations, currentPlayer);
+            } else {
+                console.log('영향받는 등식이 없음');
+            }
+        } else {
+            console.log('사용된 필드 카드가 없음');
         }
 
         // 새 등식을 필드에 추가
@@ -4426,15 +4496,33 @@ class GameController {
     }
 
     findEquationsWithCards(cards) {
-        return this.gameState.fieldEquations.filter(equation => {
-            return equation.getAllCards().some(eqCard => 
+        console.log('=== findEquationsWithCards 호출 ===');
+        console.log('검색할 카드 수:', cards.length);
+        console.log('검색할 카드들:', cards.map(card => ({id: card.id, value: card.value, type: card.type})));
+        console.log('현재 필드 등식 수:', this.gameState.fieldEquations.length);
+        
+        const affectedEquations = this.gameState.fieldEquations.filter(equation => {
+            const hasMatchingCard = equation.getAllCards().some(eqCard => 
                 cards.some(usedCard => usedCard.id === eqCard.id)
             );
+            console.log(`등식 ${equation.id} 매칭 카드 있음?`, hasMatchingCard);
+            return hasMatchingCard;
         });
+        
+        console.log('영향받는 등식 수:', affectedEquations.length);
+        console.log('영향받는 등식들:', affectedEquations.map(eq => ({id: eq.id, display: eq.getDisplayString()})));
+        console.log('=== findEquationsWithCards 완료 ===');
+        
+        return affectedEquations;
     }
 
     handleBrokenEquations(brokenEquations, currentPlayer) {
+        console.log('=== 깨진 등식 처리 시작 ===');
+        console.log('깨진 등식 수:', brokenEquations.length);
+        
         brokenEquations.forEach(equation => {
+            console.log('깨진 등식 처리:', equation.id, equation.getDisplayString());
+            
             // 등식의 모든 카드를 현재 플레이어에게 돌려줌
             equation.getAllCards().forEach(card => {
                 if (card.type === 'number') {
@@ -4450,10 +4538,19 @@ class GameController {
             this.logMessage(`등식이 깨져서 모든 카드를 가져왔습니다: ${equation.getDisplayString()}`, 'error');
         });
         
-        // 멀티플레이어에서 필드 등식 동기화
+        console.log('깨진 등식 제거 후 필드 등식 수:', this.gameState.fieldEquations.length);
+        
+        // UI 즉시 업데이트 (로컬에서 먼저 반영)
+        console.log('로컬 UI 업데이트 시작');
+        this.updateFieldEquations();
+        
+        // 멀티플레이어에서 필드 등식 동기화 (깨진 등식 제거 후)
         if (this.isMultiplayer) {
+            console.log('깨진 등식 제거 후 필드 등식 동기화 전송');
             this.broadcastFieldEquations();
         }
+        
+        console.log('=== 깨진 등식 처리 완료 ===');
     }
 
     drawCard(cardType) {

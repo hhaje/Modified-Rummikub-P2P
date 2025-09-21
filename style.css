@@ -353,8 +353,8 @@ section h3 {
     cursor: move;
     /* 동적 너비를 위한 설정 - JavaScript에서 제어 */
     width: auto;
-    min-width: 200px;
-    max-width: 500px;
+    min-width: 180px;
+    max-width: 800px;
     /* 드래그 가능한 박스로 만들기 */
     user-select: none;
     /* 드래그 성능 최적화 */
